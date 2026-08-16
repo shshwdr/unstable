@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System;
 using System.Reflection;
 using System.ComponentModel;
+using System.Globalization;
 
 namespace Sinbad
 {
@@ -572,7 +573,7 @@ namespace Sinbad
                         }
 
                         float floatValue;
-                        if (!float.TryParse(p[1], out floatValue))
+                        if (!float.TryParse(p[1], NumberStyles.Float, CultureInfo.InvariantCulture, out floatValue))
                         {
                             Debug.LogError("value " + p[1] + " is not a float");
                         }
@@ -663,7 +664,7 @@ namespace Sinbad
                 foreach (string pair in pairs)
                 {
                     float floatValue;
-                    if (!float.TryParse(pair, out floatValue))
+                    if (!float.TryParse(pair, NumberStyles.Float, CultureInfo.InvariantCulture, out floatValue))
                     {
                         Debug.LogError("value " + pair + " is not a float");
                     }
