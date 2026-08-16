@@ -9,6 +9,7 @@ public class BuildingPlacer : MonoBehaviour
     SpriteRenderer ghostRenderer;
     LineRenderer radiusCircle;
     TextMesh ghostName;
+    Building hovered;
 
     void Awake()
     {
@@ -66,24 +67,35 @@ public class BuildingPlacer : MonoBehaviour
                 Select(i);
         }
 
-        if (world.IsGameOver || Camera.main == null)
+        if (world.HasEnded || Camera.main == null)
         {
             ghost.gameObject.SetActive(false);
+            hovered = null;
+            return;
+        }
+
+        Vector3 worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        worldPos.z = 0f;
+        hovered = FindBuildingAt(worldPos);
+
+        if (hovered != null)
+        {
+            ghost.gameObject.SetActive(false);
+            if (Input.GetMouseButtonDown(1))
+                Demolish(hovered);
             return;
         }
 
         ghost.gameObject.SetActive(true);
-        Vector3 worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        worldPos.z = 0f;
         ghost.position = worldPos;
 
         BuildingInfo info = list[selected];
-        bool overlaps = OverlapsBuilding(worldPos, info.Size);
-        ghostRenderer.color = overlaps
-            ? new Color(0.95f, 0.2f, 0.2f, 0.45f)
-            : new Color(0.25f, 0.9f, 0.3f, 0.45f);
+        bool canPlace = CanPlace(worldPos, info);
+        ghostRenderer.color = canPlace
+            ? new Color(0.25f, 0.9f, 0.3f, 0.45f)
+            : new Color(0.95f, 0.2f, 0.2f, 0.45f);
 
-        if (Input.GetMouseButtonDown(0))
+        if (Input.GetMouseButtonDown(0) && canPlace)
             Place(worldPos, info);
     }
 
@@ -130,6 +142,44 @@ public class BuildingPlacer : MonoBehaviour
         }
     }
 
+    Building FindBuildingAt(Vector2 worldPos)
+    {
+        Collider2D[] hits = Physics2D.OverlapPointAll(worldPos);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            if (hits[i] == null)
+                continue;
+            Building building = hits[i].GetComponent<Building>();
+            if (building != null)
+                return building;
+        }
+
+        return null;
+    }
+
+    void Demolish(Building building)
+    {
+        if (building == null || building.Info == null)
+            return;
+
+        world.AddGold(building.Info.cost);
+        Destroy(building.gameObject);
+        hovered = null;
+    }
+
+    bool CanPlace(Vector2 position, BuildingInfo info)
+    {
+        if (info.IsCore && Building.CoreExists())
+            return false;
+        if (!info.IsCore && !Building.CoreExists())
+            return false;
+        if (world.Gold < info.cost)
+            return false;
+        if (OverlapsBuilding(position, info.Size))
+            return false;
+        return true;
+    }
+
     bool OverlapsBuilding(Vector2 position, Vector2 size)
     {
         Collider2D[] hits = Physics2D.OverlapBoxAll(position, size, 0f);
@@ -144,6 +194,9 @@ public class BuildingPlacer : MonoBehaviour
 
     void Place(Vector3 position, BuildingInfo info)
     {
+        if (!world.SpendGold(info.cost))
+            return;
+
         Vector2 size = info.Size;
 
         var go = new GameObject(info.name);
@@ -233,11 +286,11 @@ public class BuildingPlacer : MonoBehaviour
     {
         switch (type)
         {
-            case "home": return new Color(0.86f, 0.42f, 0.32f);
+            case "core": return new Color(0.95f, 0.78f, 0.28f);
+            case "mine": return new Color(0.62f, 0.45f, 0.28f);
             case "electricity": return new Color(0.95f, 0.82f, 0.25f);
-            case "water": return new Color(0.3f, 0.55f, 0.9f);
-            case "work": return new Color(0.28f, 0.62f, 0.68f);
-            case "view": return new Color(0.45f, 0.75f, 0.4f);
+            case "furnace": return new Color(0.82f, 0.38f, 0.18f);
+            case "wall": return new Color(0.55f, 0.55f, 0.58f);
             case "attack": return new Color(0.78f, 0.28f, 0.32f);
             default: return new Color(0.7f, 0.7f, 0.7f);
         }
@@ -245,11 +298,54 @@ public class BuildingPlacer : MonoBehaviour
 
     void OnGUI()
     {
+        var goldStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 36,
+            fontStyle = FontStyle.Bold
+        };
+        goldStyle.normal.textColor = Color.black;
+        goldStyle.hover.textColor = Color.black;
+        GUI.Label(new Rect(16f, Screen.height - 86f, 240f, 50f),
+            "Gold " + Mathf.FloorToInt(world.Gold), goldStyle);
+
         var list = CSVLoader.Instance.buildingList;
-        if (list.Count == 0)
+        if (list.Count > 0)
+        {
+            var hotStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 18,
+                alignment = TextAnchor.MiddleCenter
+            };
+            hotStyle.normal.textColor = Color.black;
+            hotStyle.hover.textColor = Color.black;
+
+            string hotkeys = "";
+            int count = list.Count < 9 ? list.Count : 9;
+            for (int i = 0; i < count; i++)
+            {
+                if (i > 0)
+                    hotkeys += "    ";
+                hotkeys += (i + 1) + " " + list[i].name;
+            }
+
+            GUI.Label(new Rect(0f, Screen.height - 34f, Screen.width, 28f), hotkeys, hotStyle);
+        }
+
+        if (hovered == null || hovered.Info == null)
             return;
 
-        string label = "当前建筑: " + list[selected].name + "  (1-" + list.Count + ")";
-        GUI.Label(new Rect(20f, Screen.height - 28f, 360f, 24f), label);
+        float panelW = 230f;
+        float panelH = 148f;
+        var panel = new Rect(Screen.width - panelW - 16f, Screen.height - panelH - 48f, panelW, panelH);
+        GUI.Box(panel, "");
+
+        var panelStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 16
+        };
+        panelStyle.normal.textColor = Color.black;
+        panelStyle.hover.textColor = Color.black;
+        GUI.Label(new Rect(panel.x + 12f, panel.y + 10f, panel.width - 20f, panel.height - 16f),
+            hovered.HoverInfo(), panelStyle);
     }
 }

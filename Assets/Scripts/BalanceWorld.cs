@@ -8,6 +8,13 @@ public class BalanceWorld : MonoBehaviour
     public Collider2D BoardCollider { get; private set; }
     public Rigidbody2D BoardBody { get; private set; }
     public bool IsGameOver { get; private set; }
+    public bool IsVictory { get; private set; }
+    public bool IsRestarting { get; private set; }
+    public bool HasEnded { get { return IsGameOver || IsVictory; } }
+    public float Gold { get; private set; }
+
+    public const float GoldStart = 100f;
+    public const float GoldPerSecond = 1f;
     public float BoardTilt { get; private set; }
 
     float tiltTimer;
@@ -43,15 +50,20 @@ public class BalanceWorld : MonoBehaviour
         CreateBoard();
         FitCamera();
         ApplyPhysics();
+        Gold = GoldStart;
     }
 
     void Update()
     {
-        ApplyPhysics();
-        Building.RefreshAll();
-        CheckFail();
+        if (IsRestarting)
+            IsRestarting = false;
 
-        if (IsGameOver && Input.GetKeyDown(KeyCode.R))
+        ApplyPhysics();
+        TickGold();
+        CheckFail();
+        CheckVictory();
+
+        if (HasEnded && Input.GetKeyDown(KeyCode.R))
             Restart();
     }
 
@@ -85,8 +97,56 @@ public class BalanceWorld : MonoBehaviour
         }
     }
 
+    public bool SpendGold(int amount)
+    {
+        if (amount <= 0)
+            return true;
+        if (Gold < amount)
+            return false;
+        Gold -= amount;
+        return true;
+    }
+
+    public void AddGold(int amount)
+    {
+        if (amount <= 0)
+            return;
+        Gold += amount;
+    }
+
+    public void Fail()
+    {
+        if (HasEnded)
+            return;
+        IsGameOver = true;
+        Projectile.ClearAll();
+    }
+
+    void TickGold()
+    {
+        if (HasEnded)
+            return;
+        Gold += GoldPerSecond * Time.deltaTime;
+    }
+
+    void CheckVictory()
+    {
+        if (HasEnded)
+            return;
+
+        var encounters = GetComponent<EncounterManager>();
+        if (encounters == null || !encounters.IsComplete)
+            return;
+        if (Enemy.All.Count > 0)
+            return;
+
+        IsVictory = true;
+        Projectile.ClearAll();
+    }
+
     public void Restart()
     {
+        IsRestarting = true;
         Projectile.ClearAll();
         Enemy.ClearAll();
 
@@ -100,7 +160,9 @@ public class BalanceWorld : MonoBehaviour
         BoardBody.position = settings.pivotPosition;
 
         IsGameOver = false;
+        IsVictory = false;
         tiltTimer = 0f;
+        Gold = GoldStart;
 
         var encounters = GetComponent<EncounterManager>();
         if (encounters != null)
@@ -109,7 +171,7 @@ public class BalanceWorld : MonoBehaviour
 
     void CheckFail()
     {
-        if (IsGameOver || BoardBody == null)
+        if (HasEnded || BoardBody == null)
             return;
 
         BoardTilt = Mathf.Abs(Mathf.DeltaAngle(0f, BoardBody.rotation));
@@ -122,7 +184,7 @@ public class BalanceWorld : MonoBehaviour
                 tiltTimer = 0f;
 
             if (tiltTimer >= settings.failHoldSeconds)
-                IsGameOver = true;
+                Fail();
         }
     }
 
@@ -187,24 +249,22 @@ public class BalanceWorld : MonoBehaviour
 
     void OnGUI()
     {
-        var popStyle = new GUIStyle(GUI.skin.label)
-        {
-            fontSize = 28,
-            fontStyle = FontStyle.Bold
-        };
-        popStyle.normal.textColor = Color.black;
-        GUI.Label(new Rect(16f, 12f, 400f, 40f), "人口 " + Building.SatisfiedHomeCount(), popStyle);
-
-        if (!IsGameOver)
+        if (!HasEnded)
             return;
+
+        float boxW = 360f;
+        float boxH = 140f;
+        var box = new Rect((Screen.width - boxW) * 0.5f, Screen.height * 0.32f, boxW, boxH);
+        GUI.Box(box, "");
 
         var style = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = 36
+            fontSize = 36,
+            fontStyle = FontStyle.Bold
         };
         style.normal.textColor = Color.white;
-        GUI.Label(new Rect(0f, Screen.height * 0.35f, Screen.width, 50f), "失败", style);
+        GUI.Label(new Rect(box.x, box.y + 18f, box.width, 50f), IsVictory ? "Victory" : "Defeat", style);
 
         var sub = new GUIStyle(GUI.skin.label)
         {
@@ -212,7 +272,7 @@ public class BalanceWorld : MonoBehaviour
             fontSize = 18
         };
         sub.normal.textColor = Color.white;
-        GUI.Label(new Rect(0f, Screen.height * 0.35f + 46f, Screen.width, 30f), "按 R 重新开始", sub);
+        GUI.Label(new Rect(box.x, box.y + 78f, box.width, 30f), "Press R to restart", sub);
     }
 }
 

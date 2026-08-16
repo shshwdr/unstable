@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 
 public class Building : MonoBehaviour
@@ -7,41 +8,68 @@ public class Building : MonoBehaviour
 
     public BuildingInfo Info;
     public Health Health { get; private set; }
-    public bool IsSatisfied { get; private set; }
 
-    readonly List<string> missing = new List<string>();
-    TextMesh nameText;
-    TextMesh requireText;
-    float attackTimer;
+    readonly Dictionary<string, int> stock = new Dictionary<string, int>();
+    readonly StringBuilder labelBuilder = new StringBuilder();
+
+    TextMesh infoText;
+    float cdRemain;
     BalanceWorld world;
 
-    static readonly Dictionary<string, HashSet<Building>> served = new Dictionary<string, HashSet<Building>>();
-    static readonly Dictionary<Building, int> usedSlots = new Dictionary<Building, int>();
-    static readonly List<AssignPair> pairs = new List<AssignPair>();
-    static readonly List<string> resources = new List<string>();
-
-    struct AssignPair
+    public bool IsCore
     {
-        public Building provider;
-        public Building consumer;
-        public float dist;
+        get { return Info != null && Info.IsCore; }
     }
 
-    public bool IsHome
+    public static Building FindCore()
     {
-        get { return Info != null && Info.IsHome; }
+        for (int i = 0; i < All.Count; i++)
+        {
+            if (All[i] != null && All[i].IsCore)
+                return All[i];
+        }
+
+        return null;
+    }
+
+    public static bool CoreExists()
+    {
+        return FindCore() != null;
     }
 
     public void Setup(BuildingInfo info)
     {
         Info = info;
         world = FindObjectOfType<BalanceWorld>();
+        cdRemain = info.CanAttack ? 0f : info.cd;
+
+        float halfH = info.Size.y * 0.5f;
         nameText = CreateLabel("Name", info.name, Color.white, 0f, 12);
-        requireText = CreateLabel("Require", "", Color.red, -info.Size.y * 0.5f - 0.2f, 13);
-        requireText.gameObject.SetActive(false);
+        stockText = CreateLabel("Stock", "", Color.white, -halfH - 0.18f, 13);
+        missingText = CreateLabel("Missing", "", Color.red, -halfH - 0.38f, 13);
+        missingText.gameObject.SetActive(false);
 
         Health = gameObject.AddComponent<Health>();
-        Health.Init(info.hp, new Vector3(0f, info.Size.y * 0.5f + 0.28f, 0f));
+        Health.Init(info.hp, new Vector3(0f, halfH + 0.28f, 0f));
+        RefreshLabels();
+    }
+
+    public int GetStock(string resource)
+    {
+        int amount;
+        return stock.TryGetValue(resource, out amount) ? amount : 0;
+    }
+
+    public void AddStock(string resource, int amount)
+    {
+        if (string.IsNullOrEmpty(resource) || amount == 0)
+            return;
+
+        int next = GetStock(resource) + amount;
+        if (next <= 0)
+            stock.Remove(resource);
+        else
+            stock[resource] = next;
     }
 
     void OnEnable()
@@ -52,27 +80,114 @@ public class Building : MonoBehaviour
     void OnDisable()
     {
         All.Remove(this);
+        if (IsCore && world != null && !world.IsRestarting && !world.HasEnded)
+            world.Fail();
     }
 
     void Update()
     {
-        if (world != null && world.IsGameOver)
+        if (world != null && world.HasEnded)
             return;
-        if (Info == null || Info.attack <= 0f || !IsSatisfied)
+        if (Info == null || Health == null || !Health.IsAlive)
             return;
-        if (Health == null || !Health.IsAlive)
+
+        if (Info.CanAttack)
+            TickAttack();
+        else
+            TickProduce();
+
+        RefreshLabels();
+    }
+
+    void TickProduce()
+    {
+        if (Info.cd <= 0f)
+            return;
+
+        cdRemain -= Time.deltaTime;
+        if (cdRemain > 0f)
+            return;
+
+        cdRemain += Info.cd;
+        if (cdRemain < 0f)
+            cdRemain = 0f;
+
+        if (TryConsume())
+            Produce();
+    }
+
+    void TickAttack()
+    {
+        cdRemain -= Time.deltaTime;
+        if (cdRemain > 0f)
             return;
 
         Enemy target = FindEnemyInRange();
         if (target == null)
             return;
+        if (!TryConsume())
+            return;
 
-        attackTimer -= Time.deltaTime;
-        if (attackTimer <= 0f)
+        cdRemain = Info.cd;
+        Projectile.Fire(transform.position, target.Health, Info.attack, new Color(0.35f, 0.9f, 1f));
+    }
+
+    bool TryConsume()
+    {
+        List<ResourceAmount> needs = Info.ConsumeList;
+        if (needs == null || needs.Count == 0)
+            return true;
+
+        var sources = new List<Building>(needs.Count);
+        for (int i = 0; i < needs.Count; i++)
         {
-            attackTimer = Info.attackCD;
-            Projectile.Fire(transform.position, target.Health, Info.attack, new Color(0.35f, 0.9f, 1f));
+            Building source = FindRichestCovering(needs[i].id, needs[i].amount);
+            if (source == null)
+                return false;
+            sources.Add(source);
         }
+
+        for (int i = 0; i < needs.Count; i++)
+            sources[i].AddStock(needs[i].id, -needs[i].amount);
+
+        return true;
+    }
+
+    void Produce()
+    {
+        List<ResourceAmount> list = Info.ProvideList;
+        if (list == null)
+            return;
+
+        for (int i = 0; i < list.Count; i++)
+            AddStock(list[i].id, list[i].amount);
+    }
+
+    Building FindRichestCovering(string resource, int need)
+    {
+        Building best = null;
+        int bestAmount = 0;
+        for (int i = 0; i < All.Count; i++)
+        {
+            Building other = All[i];
+            if (other == null || other == this || other.Info == null)
+                continue;
+            if (other.Info.radius <= 0f)
+                continue;
+
+            float dist = Vector2.Distance(transform.position, other.transform.position);
+            if (dist > other.Info.radius)
+                continue;
+
+            int amount = other.GetStock(resource);
+            if (amount < need || amount <= bestAmount)
+                continue;
+
+            bestAmount = amount;
+            best = other;
+        }
+
+        return best;
     }
 
     Enemy FindEnemyInRange()
@@ -96,188 +211,117 @@ public class Building : MonoBehaviour
         return best;
     }
 
+    public string FormatStock()
+    {
+        if (stock.Count == 0)
+            return "none";
+
+        var sb = new StringBuilder();
+        bool first = true;
+        foreach (var pair in stock)
+        {
+            if (!first)
+                sb.Append(' ');
+            first = false;
+            sb.Append(pair.Key).Append(':').Append(pair.Value);
+        }
+
+        return sb.ToString();
+    }
+
+    public string HoverInfo()
+    {
+        labelBuilder.Length = 0;
+        labelBuilder.Append(Info != null ? Info.name : "");
+        labelBuilder.Append("\nStock ").Append(FormatStock());
+        labelBuilder.Append("\nConsume ").Append(FormatAmounts(Info != null ? Info.ConsumeList : null));
+        labelBuilder.Append("\nProvide ").Append(FormatAmounts(Info != null ? Info.ProvideList : null));
+        labelBuilder.Append("\nCD ").Append(Info != null && Info.cd > 0f ? Info.cd.ToString("0.##") : "-");
+        return labelBuilder.ToString();
+    }
+
+    static string FormatAmounts(List<ResourceAmount> list)
+    {
+        if (list == null || list.Count == 0)
+            return "none";
+
+        var sb = new StringBuilder();
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (i > 0)
+                sb.Append(' ');
+            sb.Append(list[i].id).Append(':').Append(list[i].amount);
+        }
+
+        return sb.ToString();
+    }
+
+    void RefreshLabels()
+    {
+        RefreshStockLabel();
+        RefreshMissingLabel();
+    }
+
+    void RefreshStockLabel()
+    {
+        if (stockText == null)
+            return;
+
+        if (stock.Count == 0)
+        {
+            stockText.gameObject.SetActive(false);
+            return;
+        }
+
+        stockText.gameObject.SetActive(true);
+        stockText.text = FormatStock();
+    }
+
+    void RefreshMissingLabel()
+    {
+        if (missingText == null || Info == null)
+            return;
+
+        labelBuilder.Length = 0;
+        List<ResourceAmount> needs = Info.ConsumeList;
+        if (needs != null)
+        {
+            for (int i = 0; i < needs.Count; i++)
+            {
+                if (FindRichestCovering(needs[i].id, needs[i].amount) != null)
+                    continue;
+                if (labelBuilder.Length > 0)
+                    labelBuilder.Append('\n');
+                labelBuilder.Append(needs[i].id);
+                if (needs[i].amount > 1)
+                    labelBuilder.Append(':').Append(needs[i].amount);
+            }
+        }
+
+        if (labelBuilder.Length == 0)
+        {
+            missingText.gameObject.SetActive(false);
+            return;
+        }
+
+        missingText.gameObject.SetActive(true);
+        missingText.text = labelBuilder.ToString();
+
+        float halfH = Info.Size.y * 0.5f;
+        float y = -halfH - 0.18f;
+        if (stockText != null && stockText.gameObject.activeSelf)
+            y -= 0.22f;
+        missingText.transform.localPosition = new Vector3(0f, y, -0.1f);
+    }
+
     void LateUpdate()
     {
         if (nameText != null)
             nameText.transform.rotation = Quaternion.identity;
-        if (requireText != null)
-            requireText.transform.rotation = Quaternion.identity;
-    }
-
-    public bool UpdateSatisfaction()
-    {
-        bool ok = true;
-        missing.Clear();
-
-        if (Info != null && Info.require != null)
-        {
-            for (int i = 0; i < Info.require.Count; i++)
-            {
-                string resource = Info.require[i];
-                if (string.IsNullOrEmpty(resource))
-                    continue;
-                if (IsServed(resource))
-                    continue;
-
-                ok = false;
-                missing.Add(resource);
-            }
-        }
-
-        bool changed = ok != IsSatisfied;
-        IsSatisfied = ok;
-        RefreshRequireLabel();
-        return changed;
-    }
-
-    public static void RefreshAll()
-    {
-        for (int i = 0; i < All.Count; i++)
-            All[i].IsSatisfied = All[i].Info != null && All[i].Info.HasNoRequires();
-
-        int limit = All.Count + 1;
-        for (int pass = 0; pass < limit; pass++)
-        {
-            BuildServed();
-            bool changed = false;
-            for (int i = 0; i < All.Count; i++)
-            {
-                if (All[i].UpdateSatisfaction())
-                    changed = true;
-            }
-
-            if (!changed)
-                break;
-        }
-    }
-
-    public static int SatisfiedHomeCount()
-    {
-        int count = 0;
-        for (int i = 0; i < All.Count; i++)
-        {
-            if (All[i].IsHome && All[i].IsSatisfied)
-                count++;
-        }
-
-        return count;
-    }
-
-    static void BuildServed()
-    {
-        foreach (var pair in served)
-            pair.Value.Clear();
-
-        resources.Clear();
-        for (int i = 0; i < All.Count; i++)
-        {
-            Building provider = All[i];
-            if (!provider.IsSatisfied || provider.Info == null || provider.Info.provide == null)
-                continue;
-            if (provider.Info.radius <= 0f || provider.Info.provideCount <= 0)
-                continue;
-
-            for (int p = 0; p < provider.Info.provide.Count; p++)
-            {
-                string resource = provider.Info.provide[p];
-                if (string.IsNullOrEmpty(resource) || resources.Contains(resource))
-                    continue;
-                resources.Add(resource);
-            }
-        }
-
-        for (int i = 0; i < resources.Count; i++)
-            AssignResource(resources[i]);
-    }
-
-    static void AssignResource(string resource)
-    {
-        pairs.Clear();
-        usedSlots.Clear();
-
-        for (int i = 0; i < All.Count; i++)
-        {
-            Building provider = All[i];
-            if (!provider.IsSatisfied || provider.Info == null)
-                continue;
-            if (!provider.Info.Provides(resource))
-                continue;
-            if (provider.Info.radius <= 0f || provider.Info.provideCount <= 0)
-                continue;
-
-            Vector2 pos = provider.transform.position;
-            float radius = provider.Info.radius;
-            for (int j = 0; j < All.Count; j++)
-            {
-                Building consumer = All[j];
-                if (consumer == provider || consumer.Info == null)
-                    continue;
-                if (!consumer.Info.Requires(resource))
-                    continue;
-
-                float dist = Vector2.Distance(pos, consumer.transform.position);
-                if (dist > radius)
-                    continue;
-
-                pairs.Add(new AssignPair { provider = provider, consumer = consumer, dist = dist });
-            }
-        }
-
-        pairs.Sort(ComparePair);
-        HashSet<Building> set = GetServed(resource);
-        for (int i = 0; i < pairs.Count; i++)
-        {
-            Building consumer = pairs[i].consumer;
-            if (set.Contains(consumer))
-                continue;
-
-            Building provider = pairs[i].provider;
-            int used;
-            usedSlots.TryGetValue(provider, out used);
-            if (used >= provider.Info.provideCount)
-                continue;
-
-            set.Add(consumer);
-            usedSlots[provider] = used + 1;
-        }
-    }
-
-    static int ComparePair(AssignPair a, AssignPair b)
-    {
-        return a.dist.CompareTo(b.dist);
-    }
-
-    static HashSet<Building> GetServed(string resource)
-    {
-        HashSet<Building> set;
-        if (!served.TryGetValue(resource, out set))
-        {
-            set = new HashSet<Building>();
-            served[resource] = set;
-        }
-
-        return set;
-    }
-
-    bool IsServed(string resource)
-    {
-        HashSet<Building> set;
-        return served.TryGetValue(resource, out set) && set.Contains(this);
-    }
-
-    void RefreshRequireLabel()
-    {
-        if (requireText == null)
-            return;
-
-        if (IsSatisfied || missing.Count == 0)
-        {
-            requireText.gameObject.SetActive(false);
-            return;
-        }
-
-        requireText.gameObject.SetActive(true);
-        requireText.text = string.Join("\n", missing.ToArray());
+        if (stockText != null)
+            stockText.transform.rotation = Quaternion.identity;
+        if (missingText != null)
+            missingText.transform.rotation = Quaternion.identity;
     }
 
     TextMesh CreateLabel(string objectName, string text, Color color, float localY, int sortingOrder)
@@ -292,7 +336,7 @@ public class Building : MonoBehaviour
         mesh.anchor = TextAnchor.MiddleCenter;
         mesh.alignment = TextAlignment.Center;
         mesh.fontSize = 48;
-        mesh.characterSize = 0.06f;
+        mesh.characterSize = 0.05f;
         mesh.color = color;
 
         var renderer = go.GetComponent<MeshRenderer>();

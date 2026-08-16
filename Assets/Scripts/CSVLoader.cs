@@ -2,20 +2,34 @@ using System.Collections.Generic;
 using Sinbad;
 using UnityEngine;
 
+public struct ResourceAmount
+{
+    public string id;
+    public int amount;
+
+    public override string ToString()
+    {
+        return id + ":" + amount;
+    }
+}
+
 public class BuildingInfo
 {
     public string identifier;
     public string name;
     public string type;
     public List<string> provide;
-    public int provideCount;
+    public float cd;
     public List<float> shape;
     public float radius;
-    public List<string> require;
     public float hp;
     public float attack;
     public float attackRange;
-    public float attackCD;
+    public List<string> consume;
+    public int cost;
+
+    public List<ResourceAmount> ProvideList = new List<ResourceAmount>();
+    public List<ResourceAmount> ConsumeList = new List<ResourceAmount>();
 
     public Vector2 Size
     {
@@ -27,51 +41,53 @@ public class BuildingInfo
         }
     }
 
-    public bool IsHome
+    public bool IsCore
     {
-        get { return type == "home"; }
+        get { return type == "core"; }
     }
 
-    public bool Provides(string resource)
+    public bool CanAttack
     {
-        if (provide == null || string.IsNullOrEmpty(resource))
-            return false;
-
-        for (int i = 0; i < provide.Count; i++)
-        {
-            if (provide[i] == resource)
-                return true;
-        }
-
-        return false;
+        get { return attack > 0f; }
     }
 
-    public bool Requires(string resource)
+    public void ParseAmounts()
     {
-        if (require == null || string.IsNullOrEmpty(resource))
-            return false;
-
-        for (int i = 0; i < require.Count; i++)
-        {
-            if (require[i] == resource)
-                return true;
-        }
-
-        return false;
+        ProvideList = ParseResourceList(provide);
+        ConsumeList = ParseResourceList(consume);
     }
 
-    public bool HasNoRequires()
+    public static List<ResourceAmount> ParseResourceList(List<string> tokens)
     {
-        if (require == null)
-            return true;
+        var result = new List<ResourceAmount>();
+        if (tokens == null)
+            return result;
 
-        for (int i = 0; i < require.Count; i++)
+        for (int i = 0; i < tokens.Count; i++)
         {
-            if (!string.IsNullOrEmpty(require[i]))
-                return false;
+            string token = tokens[i];
+            if (string.IsNullOrEmpty(token))
+                continue;
+
+            int split = token.LastIndexOf('_');
+            if (split <= 0 || split >= token.Length - 1)
+            {
+                Debug.LogError("资源格式应为 identifier_数量: " + token);
+                continue;
+            }
+
+            string id = token.Substring(0, split);
+            int amount;
+            if (!int.TryParse(token.Substring(split + 1), out amount))
+            {
+                Debug.LogError("资源数量无法解析: " + token);
+                continue;
+            }
+
+            result.Add(new ResourceAmount { id = id, amount = amount });
         }
 
-        return true;
+        return result;
     }
 }
 
@@ -164,7 +180,10 @@ public class CSVLoader : Singleton<CSVLoader>
         buildingList = CsvUtil.LoadObjects<BuildingInfo>("building");
         buildingInfoMap.Clear();
         for (int i = 0; i < buildingList.Count; i++)
+        {
+            buildingList[i].ParseAmounts();
             buildingInfoMap[buildingList[i].identifier] = buildingList[i];
+        }
 
         enemyList = CsvUtil.LoadObjects<EnemyInfo>("enemy");
         enemyInfoMap.Clear();
@@ -172,11 +191,5 @@ public class CSVLoader : Singleton<CSVLoader>
             enemyInfoMap[enemyList[i].identifier] = enemyList[i];
 
         encounterList = CsvUtil.LoadObjects<EncounterInfo>("encounter");
-        encounterList.Sort(CompareEncounterTime);
-    }
-
-    static int CompareEncounterTime(EncounterInfo a, EncounterInfo b)
-    {
-        return a.time.CompareTo(b.time);
     }
 }

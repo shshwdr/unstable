@@ -12,6 +12,18 @@ public class EncounterManager : MonoBehaviour
     bool spawning;
     float interval;
     float nextSpawnAt;
+    float nextWaveAt;
+
+    public bool IsComplete
+    {
+        get
+        {
+            List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+            if (list == null || list.Count == 0)
+                return false;
+            return !spawning && waveIndex >= list.Count;
+        }
+    }
 
     void Start()
     {
@@ -33,12 +45,14 @@ public class EncounterManager : MonoBehaviour
         waveIndex = 0;
         interval = 0f;
         nextSpawnAt = 0f;
+        List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+        nextWaveAt = list != null && list.Count > 0 ? list[0].time : 0f;
         PlaceGate();
     }
 
     void Update()
     {
-        if (world != null && world.IsGameOver)
+        if (world != null && world.HasEnded)
             return;
 
         gameTime += Time.deltaTime;
@@ -56,7 +70,7 @@ public class EncounterManager : MonoBehaviour
         List<EncounterInfo> list = CSVLoader.Instance.encounterList;
         if (list == null || waveIndex >= list.Count)
             return;
-        if (gameTime < list[waveIndex].time)
+        if (gameTime < nextWaveAt)
             return;
 
         EncounterInfo encounter = list[waveIndex];
@@ -86,6 +100,9 @@ public class EncounterManager : MonoBehaviour
             spawning = false;
             waveIndex++;
             PlaceGate();
+            List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+            if (list != null && waveIndex < list.Count)
+                nextWaveAt = gameTime + list[waveIndex].time;
         }
     }
 
@@ -115,7 +132,7 @@ public class EncounterManager : MonoBehaviour
         if (spawning)
             remain = nextSpawnAt - gameTime;
         else if (list != null && waveIndex < list.Count)
-            remain = list[waveIndex].time - gameTime;
+            remain = nextWaveAt - gameTime;
 
         gate.SetCountdown(remain);
     }

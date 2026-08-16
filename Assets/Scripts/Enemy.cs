@@ -61,7 +61,7 @@ public class Enemy : MonoBehaviour
 
     void Update()
     {
-        if (world != null && world.IsGameOver)
+        if (world != null && world.HasEnded)
             return;
         if (Info == null || Health == null || !Health.IsAlive)
             return;

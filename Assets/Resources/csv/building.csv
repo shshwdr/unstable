@@ -1,7 +1,7 @@
-identifier,name,type,provide,provideCount,cd,shape,radius,require,hp,attack,attackRange,attackCD,consume,cost
-core,core,core,core,,,1|1,,,500,,,,,
-mine,mine,mine,ore,1,1,1.4|1.4,8,,100,,,,electricity_1,ore_10
-attack,attack,attack,attack,1,,1.8|1.8,2,,100,5,2,0.3,ore_1|electricity_1,ore_10
-electricity,electricity,electricity,electricity,1,0.5,3|2,8,,100,,,,,ore_10
-wall,wall,wall,wall,1,,,,,200,,,,,ore_10
-furnace,furnace,furnace,copper,1,1,,8,,100,,,,ore_1,ore_10
+identifier,name,type,provide,cd,shape,radius,hp,attack,attackRange,consume,cost
+core,core,core,,,1|1,,500,,,,
+mine,mine,mine,ore_1,1,1.4|1.4,8,100,,,electricity_1,10
+attack,attack,attack,attack_1,0.3,1.8|1.8,3,100,5,2,ore_1|electricity_1,10
+electricity,electricity,electricity,electricity_1,0.5,3|2,8,100,,,,10
+wall,wall,wall,,,,,200,,,,10
+furnace,furnace,furnace,copper_1,1,,8,100,,,ore_1,10
