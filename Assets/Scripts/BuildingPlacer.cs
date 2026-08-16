@@ -238,6 +238,7 @@ public class BuildingPlacer : MonoBehaviour
             case "water": return new Color(0.3f, 0.55f, 0.9f);
             case "work": return new Color(0.28f, 0.62f, 0.68f);
             case "view": return new Color(0.45f, 0.75f, 0.4f);
+            case "attack": return new Color(0.78f, 0.28f, 0.32f);
             default: return new Color(0.7f, 0.7f, 0.7f);
         }
     }

@@ -1,0 +1,3 @@
+time,enemies,interval,pos
+5,normal_3,0.3,5|5
+10,normal_2|speed_2,0.3,-5|5

@@ -21,6 +21,7 @@ public class BalanceWorld : MonoBehaviour
         var go = new GameObject("BalanceGame");
         go.AddComponent<BalanceWorld>();
         go.AddComponent<BuildingPlacer>();
+        go.AddComponent<EncounterManager>();
     }
 
     void Awake()
@@ -86,6 +87,9 @@ public class BalanceWorld : MonoBehaviour
 
     public void Restart()
     {
+        Projectile.ClearAll();
+        Enemy.ClearAll();
+
         Building[] buildings = FindObjectsOfType<Building>();
         for (int i = 0; i < buildings.Length; i++)
             Destroy(buildings[i].gameObject);
@@ -97,6 +101,10 @@ public class BalanceWorld : MonoBehaviour
 
         IsGameOver = false;
         tiltTimer = 0f;
+
+        var encounters = GetComponent<EncounterManager>();
+        if (encounters != null)
+            encounters.Restart();
     }
 
     void CheckFail()
@@ -210,6 +218,15 @@ public class BalanceWorld : MonoBehaviour
 
 public static class ShapeUtil
 {
+    static Sprite whiteSprite;
+
+    public static Sprite WhiteSprite()
+    {
+        if (whiteSprite == null)
+            whiteSprite = Square(Color.white);
+        return whiteSprite;
+    }
+
     public static Sprite Square(Color color)
     {
         var tex = new Texture2D(4, 4, TextureFormat.RGBA32, false);
@@ -220,7 +237,7 @@ public static class ShapeUtil
         tex.SetPixels(pixels);
         tex.Apply();
         tex.wrapMode = TextureWrapMode.Clamp;
-        return Sprite.Create(tex, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f), 4f);
+        return Sprite.Create(tex, new Rect(0f, 0f, 4f, 4f), new Vector2(0.5f, 0.5f), 4f, 0, SpriteMeshType.FullRect);
     }
 
     public static Sprite Triangle(Color color)

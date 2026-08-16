@@ -6,11 +6,14 @@ public class Building : MonoBehaviour
     public static readonly List<Building> All = new List<Building>();
 
     public BuildingInfo Info;
+    public Health Health { get; private set; }
     public bool IsSatisfied { get; private set; }
 
     readonly List<string> missing = new List<string>();
     TextMesh nameText;
     TextMesh requireText;
+    float attackTimer;
+    BalanceWorld world;
 
     static readonly Dictionary<string, HashSet<Building>> served = new Dictionary<string, HashSet<Building>>();
     static readonly Dictionary<Building, int> usedSlots = new Dictionary<Building, int>();
@@ -32,9 +35,13 @@ public class Building : MonoBehaviour
     public void Setup(BuildingInfo info)
     {
         Info = info;
+        world = FindObjectOfType<BalanceWorld>();
         nameText = CreateLabel("Name", info.name, Color.white, 0f, 12);
         requireText = CreateLabel("Require", "", Color.red, -info.Size.y * 0.5f - 0.2f, 13);
         requireText.gameObject.SetActive(false);
+
+        Health = gameObject.AddComponent<Health>();
+        Health.Init(info.hp, new Vector3(0f, info.Size.y * 0.5f + 0.28f, 0f));
     }
 
     void OnEnable()
@@ -45,6 +52,48 @@ public class Building : MonoBehaviour
     void OnDisable()
     {
         All.Remove(this);
+    }
+
+    void Update()
+    {
+        if (world != null && world.IsGameOver)
+            return;
+        if (Info == null || Info.attack <= 0f || !IsSatisfied)
+            return;
+        if (Health == null || !Health.IsAlive)
+            return;
+
+        Enemy target = FindEnemyInRange();
+        if (target == null)
+            return;
+
+        attackTimer -= Time.deltaTime;
+        if (attackTimer <= 0f)
+        {
+            attackTimer = Info.attackCD;
+            Projectile.Fire(transform.position, target.Health, Info.attack, new Color(0.35f, 0.9f, 1f));
+        }
+    }
+
+    Enemy FindEnemyInRange()
+    {
+        Enemy best = null;
+        float bestDist = Info.attackRange;
+        for (int i = 0; i < Enemy.All.Count; i++)
+        {
+            Enemy enemy = Enemy.All[i];
+            if (enemy == null || enemy.Health == null || !enemy.Health.IsAlive)
+                continue;
+
+            float dist = CombatUtil.Distance(this, enemy);
+            if (dist > bestDist)
+                continue;
+
+            bestDist = dist;
+            best = enemy;
+        }
+
+        return best;
     }
 
     void LateUpdate()
