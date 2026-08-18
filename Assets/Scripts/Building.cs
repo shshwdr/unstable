@@ -8,6 +8,7 @@ public class Building : MonoBehaviour
 
     public BuildingInfo Info;
     public Health Health { get; private set; }
+    public Bounds PhysicsBounds { get; private set; }
 
     readonly Dictionary<string, int> stock = new Dictionary<string, int>();
     readonly StringBuilder labelBuilder = new StringBuilder();
@@ -98,8 +99,9 @@ public class Building : MonoBehaviour
         world = FindObjectOfType<BalanceWorld>();
         cycling = false;
         cdRemain = 0f;
+        PhysicsBounds = BuildingArt.PhysicsLocalBounds(info);
 
-        float halfH = info.Size.y * 0.5f;
+        float top = PhysicsBounds.max.y;
         infoText = CreateLabel("Info", info.name, Color.white, 0.12f, 12);
         infoText.anchor = TextAnchor.UpperCenter;
         infoText.richText = true;
@@ -107,7 +109,7 @@ public class Building : MonoBehaviour
         if (!info.IsResource)
         {
             Health = gameObject.AddComponent<Health>();
-            Health.Init(info.hp, new Vector3(0f, halfH + 0.28f, 0f));
+            Health.Init(info.hp, new Vector3(0f, top + 0.28f, 0f));
         }
 
         if (info.IsResource && info.radius > 0f)
@@ -201,9 +203,10 @@ public class Building : MonoBehaviour
         if (col == null)
             return false;
 
-        Vector2 size = Info.Size;
-        Vector2 up = transform.up;
-        Vector2 center = (Vector2)transform.position + up * (size.y * 0.5f + 0.1f);
+        Vector2 size = PhysicsBounds.size;
+        if (size.x < 0.01f || size.y < 0.01f)
+            size = Info.Size;
+        Vector2 center = transform.TransformPoint(new Vector3(PhysicsBounds.center.x, PhysicsBounds.max.y + 0.1f, 0f));
         Vector2 box = new Vector2(Mathf.Max(0.2f, size.x * 0.75f), 0.16f);
         Collider2D[] hits = Physics2D.OverlapBoxAll(center, box, transform.eulerAngles.z);
         for (int i = 0; i < hits.Length; i++)
@@ -466,7 +469,9 @@ public class Building : MonoBehaviour
             return;
 
         float progress = cycling ? 1f - Mathf.Clamp01(cdRemain / Info.cd) : 0f;
-        Vector2 size = Info.Size;
+        Vector2 size = PhysicsBounds.size;
+        if (size.x < 0.01f || size.y < 0.01f)
+            size = Info.Size;
         float h = size.y * progress;
         if (h < 0.001f)
         {
@@ -476,7 +481,10 @@ public class Building : MonoBehaviour
 
         cdFill.enabled = true;
         cdFill.transform.localScale = new Vector3(size.x, h, 1f);
-        cdFill.transform.localPosition = new Vector3(0f, -size.y * 0.5f + h * 0.5f, -0.05f);
+        cdFill.transform.localPosition = new Vector3(
+            PhysicsBounds.center.x,
+            PhysicsBounds.min.y + h * 0.5f,
+            -0.05f);
     }
 
     void LateUpdate()
@@ -529,5 +537,134 @@ public class Building : MonoBehaviour
             float a = i / (float)segments * Mathf.PI * 2f;
             ring.SetPosition(i, new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f));
         }
+    }
+}
+
+public static class BuildingArt
+{
+    const string ResourceFolder = "building/";
+    static readonly List<Vector2> shapePoints = new List<Vector2>(64);
+    static readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
+    static readonly HashSet<string> missingSprites = new HashSet<string>();
+
+    public static Sprite LoadSprite(BuildingInfo info)
+    {
+        if (info == null || string.IsNullOrEmpty(info.identifier))
+            return null;
+
+        Sprite sprite;
+        if (spriteCache.TryGetValue(info.identifier, out sprite))
+            return sprite;
+        if (missingSprites.Contains(info.identifier))
+            return null;
+
+        sprite = Resources.Load<Sprite>(ResourceFolder + info.identifier);
+        if (sprite == null)
+        {
+            missingSprites.Add(info.identifier);
+            return null;
+        }
+
+        spriteCache[info.identifier] = sprite;
+        return sprite;
+    }
+
+    public static Sprite ResolveSprite(BuildingInfo info, Color fallbackColor, bool hexagon)
+    {
+        Sprite sprite = LoadSprite(info);
+        if (sprite != null)
+            return sprite;
+        return hexagon ? ShapeUtil.Hexagon(fallbackColor) : ShapeUtil.Square(fallbackColor);
+    }
+
+    public static Vector2 VisualScale(BuildingInfo info, Sprite sprite)
+    {
+        Vector2 shape = info != null ? info.Size : Vector2.one;
+        if (sprite == null)
+            return shape;
+
+        Vector2 spriteSize = sprite.bounds.size;
+        return new Vector2(
+            spriteSize.x > 0.0001f ? shape.x / spriteSize.x : shape.x,
+            spriteSize.y > 0.0001f ? shape.y / spriteSize.y : shape.y);
+    }
+
+    public static Bounds PhysicsLocalBounds(BuildingInfo info)
+    {
+        bool hexagon = info != null && info.IsResource;
+        Sprite sprite = ResolveSprite(info, Color.white, hexagon);
+        return PhysicsLocalBounds(sprite, VisualScale(info, sprite), info);
+    }
+
+    public static Bounds PhysicsLocalBounds(Sprite sprite, Vector2 scale, BuildingInfo info)
+    {
+        Bounds shapeBounds;
+        if (TryPhysicsShapeBounds(sprite, scale, out shapeBounds))
+            return shapeBounds;
+
+        Vector2 size = info != null ? info.Size : Vector2.one;
+        return new Bounds(Vector3.zero, new Vector3(size.x, size.y, 0f));
+    }
+
+    public static Collider2D AddCollider(GameObject go, Sprite sprite, Vector2 scale, BuildingInfo info, PhysicsMaterial2D material)
+    {
+        if (sprite != null && sprite.GetPhysicsShapeCount() > 0)
+        {
+            var poly = go.AddComponent<PolygonCollider2D>();
+            int count = sprite.GetPhysicsShapeCount();
+            poly.pathCount = count;
+            for (int i = 0; i < count; i++)
+            {
+                shapePoints.Clear();
+                sprite.GetPhysicsShape(i, shapePoints);
+                for (int p = 0; p < shapePoints.Count; p++)
+                    shapePoints[p] = new Vector2(shapePoints[p].x * scale.x, shapePoints[p].y * scale.y);
+                poly.SetPath(i, shapePoints);
+            }
+
+            poly.sharedMaterial = material;
+            return poly;
+        }
+
+        Vector2 size = info != null ? info.Size : Vector2.one;
+        var box = go.AddComponent<BoxCollider2D>();
+        box.size = size;
+        box.sharedMaterial = material;
+        return box;
+    }
+
+    static bool TryPhysicsShapeBounds(Sprite sprite, Vector2 scale, out Bounds bounds)
+    {
+        bounds = new Bounds();
+        if (sprite == null || sprite.GetPhysicsShapeCount() <= 0)
+            return false;
+
+        float minX = float.MaxValue;
+        float minY = float.MaxValue;
+        float maxX = float.MinValue;
+        float maxY = float.MinValue;
+        int count = sprite.GetPhysicsShapeCount();
+        for (int i = 0; i < count; i++)
+        {
+            shapePoints.Clear();
+            sprite.GetPhysicsShape(i, shapePoints);
+            for (int p = 0; p < shapePoints.Count; p++)
+            {
+                float x = shapePoints[p].x * scale.x;
+                float y = shapePoints[p].y * scale.y;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+
+        if (minX > maxX)
+            return false;
+
+        bounds = new Bounds(
+            new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, 0f),
+            new Vector3(maxX - minX, maxY - minY, 0f));
+        return true;
     }
 }

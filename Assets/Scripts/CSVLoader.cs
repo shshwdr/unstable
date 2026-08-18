@@ -22,6 +22,7 @@ public class BuildingInfo
     public List<string> provide;
     public float cd;
     public List<float> shape;
+    public float scale;
     public float radius;
     public float hp;
     public float attack;
@@ -39,7 +40,8 @@ public class BuildingInfo
         {
             float w = shape != null && shape.Count > 0 ? shape[0] : 1f;
             float h = shape != null && shape.Count > 1 ? shape[1] : w;
-            return new Vector2(w, h);
+            float s = scale > 0f ? scale : 1f;
+            return new Vector2(w * s, h * s);
         }
     }
 

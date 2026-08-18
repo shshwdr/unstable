@@ -145,8 +145,10 @@ public class BuildingPlacer : MonoBehaviour
         if (info == null)
             return;
 
-        Vector2 size = info.Size;
-        ghostVisual.localScale = new Vector3(size.x, size.y, 1f);
+        Sprite sprite = BuildingArt.ResolveSprite(info, Color.white, false);
+        ghostRenderer.sprite = sprite;
+        Vector2 scale = BuildingArt.VisualScale(info, sprite);
+        ghostVisual.localScale = new Vector3(scale.x, scale.y, 1f);
         ghostName.text = info.name;
         SetCircle(info.radius);
     }
@@ -188,8 +190,9 @@ public class BuildingPlacer : MonoBehaviour
                 continue;
 
             Vector2 localPoint = resource.transform.InverseTransformPoint(worldPos);
-            Vector2 half = resource.Info.Size * 0.5f;
-            if (Mathf.Abs(localPoint.x) <= half.x && Mathf.Abs(localPoint.y) <= half.y)
+            Bounds local = resource.PhysicsBounds;
+            if (localPoint.x >= local.min.x && localPoint.x <= local.max.x &&
+                localPoint.y >= local.min.y && localPoint.y <= local.max.y)
                 return resource;
         }
 
@@ -216,7 +219,7 @@ public class BuildingPlacer : MonoBehaviour
             return false;
         if (world.Gold < info.cost)
             return false;
-        if (OverlapsBuilding(position, info.Size))
+        if (OverlapsBuilding(position, info))
             return false;
         if (!InRequiredResourceRange(position, info))
             return false;
@@ -244,9 +247,11 @@ public class BuildingPlacer : MonoBehaviour
         return false;
     }
 
-    bool OverlapsBuilding(Vector2 position, Vector2 size)
+    bool OverlapsBuilding(Vector2 position, BuildingInfo info)
     {
-        Collider2D[] hits = Physics2D.OverlapBoxAll(position, size, 0f);
+        Bounds local = BuildingArt.PhysicsLocalBounds(info);
+        Vector2 center = position + (Vector2)local.center;
+        Collider2D[] hits = Physics2D.OverlapBoxAll(center, local.size, 0f);
         for (int i = 0; i < hits.Length; i++)
         {
             if (hits[i] != null && hits[i].GetComponent<Building>() != null)
@@ -277,8 +282,9 @@ public class BuildingPlacer : MonoBehaviour
             return;
         }
 
-        SpawnResourceLocal(RandomBoardTopLocalX(rock.Size, -1), rock);
-        SpawnResourceLocal(RandomBoardTopLocalX(rock.Size, 1), rock);
+        Bounds rockBounds = BuildingArt.PhysicsLocalBounds(rock);
+        SpawnResourceLocal(RandomBoardTopLocalX(rockBounds.size, -1), rock);
+        SpawnResourceLocal(RandomBoardTopLocalX(rockBounds.size, 1), rock);
 
         RefreshGhost();
     }
@@ -299,36 +305,36 @@ public class BuildingPlacer : MonoBehaviour
         if (info.IsResource)
             return null;
 
-        Vector2 size = info.Size;
-
         var go = new GameObject(info.name);
         go.transform.position = position;
+
+        Sprite sprite = BuildingArt.ResolveSprite(info, ColorFor(info.type), false);
+        Vector2 scale = BuildingArt.VisualScale(info, sprite);
+        Bounds phys = BuildingArt.PhysicsLocalBounds(sprite, scale, info);
 
         var visual = new GameObject("Visual");
         visual.transform.SetParent(go.transform);
         visual.transform.localPosition = Vector3.zero;
-        visual.transform.localScale = new Vector3(size.x, size.y, 1f);
+        visual.transform.localScale = new Vector3(scale.x, scale.y, 1f);
         var renderer = visual.AddComponent<SpriteRenderer>();
-        renderer.sprite = ShapeUtil.Square(ColorFor(info.type));
+        renderer.sprite = sprite;
         renderer.sortingOrder = 5;
 
         var body = go.AddComponent<Rigidbody2D>();
         body.bodyType = RigidbodyType2D.Dynamic;
-        body.mass = Mathf.Max(0.05f, world.settings.buildingDensity * size.x * size.y);
+        body.mass = Mathf.Max(0.05f, world.settings.buildingDensity * Mathf.Max(0.01f, phys.size.x * phys.size.y));
         body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         body.interpolation = RigidbodyInterpolation2D.Interpolate;
 
-        var box = go.AddComponent<BoxCollider2D>();
-        box.size = size;
-        box.sharedMaterial = world.SharedMaterial;
+        var col = BuildingArt.AddCollider(go, sprite, scale, info, world.SharedMaterial);
 
         var building = go.AddComponent<Building>();
         building.Setup(info);
 
         Physics2D.SyncTransforms();
-        SeparateFromBoard(box);
+        SeparateFromBoard(col);
         Physics2D.SyncTransforms();
-        PushOverlappingBuildings(box);
+        PushOverlappingBuildings(col);
         body.velocity = Vector2.zero;
         body.angularVelocity = 0f;
         return building;
@@ -339,22 +345,24 @@ public class BuildingPlacer : MonoBehaviour
         if (world.BoardBody == null)
             return null;
 
-        Vector2 size = info.Size;
+        Sprite sprite = BuildingArt.ResolveSprite(info, ColorFor(info.type), true);
+        Vector2 scale = BuildingArt.VisualScale(info, sprite);
+        Bounds phys = BuildingArt.PhysicsLocalBounds(sprite, scale, info);
 
         var go = new GameObject(info.name);
         go.transform.SetParent(world.BoardBody.transform, false);
         go.transform.localPosition = new Vector3(
             localX,
-            world.settings.boardHeight * 0.5f + size.y * 0.5f + 0.02f,
+            world.settings.boardHeight * 0.5f - phys.min.y + 0.02f,
             0f);
         go.transform.localRotation = Quaternion.identity;
 
         var visual = new GameObject("Visual");
         visual.transform.SetParent(go.transform);
         visual.transform.localPosition = Vector3.zero;
-        visual.transform.localScale = new Vector3(size.x, size.y, 1f);
+        visual.transform.localScale = new Vector3(scale.x, scale.y, 1f);
         var renderer = visual.AddComponent<SpriteRenderer>();
-        renderer.sprite = ShapeUtil.Hexagon(ColorFor(info.type));
+        renderer.sprite = sprite;
         renderer.sortingOrder = 5;
 
         var building = go.AddComponent<Building>();
