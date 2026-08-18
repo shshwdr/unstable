@@ -57,14 +57,14 @@ public class BuildingPlacer : MonoBehaviour
 
     void Update()
     {
-        var list = CSVLoader.Instance.buildingList;
-        if (list.Count == 0)
-            return;
-
-        for (int i = 0; i < list.Count && i < 9; i++)
+        var list = CSVLoader.Instance.playerBuildingList;
+        if (Building.CoreExists())
         {
-            if (Input.GetKeyDown(KeyCode.Alpha1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i))
-                Select(i);
+            for (int i = 0; i < list.Count && i < 9; i++)
+            {
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i))
+                    Select(i);
+            }
         }
 
         if (world.HasEnded || Camera.main == null)
@@ -86,10 +86,23 @@ public class BuildingPlacer : MonoBehaviour
             return;
         }
 
+        var encounters = GetComponent<EncounterManager>();
+        if (Input.GetMouseButtonDown(0) && encounters != null && encounters.TryRushAt(worldPos))
+        {
+            ghost.gameObject.SetActive(false);
+            return;
+        }
+
+        BuildingInfo info = CurrentInfo();
+        if (info == null)
+        {
+            ghost.gameObject.SetActive(false);
+            return;
+        }
+
         ghost.gameObject.SetActive(true);
         ghost.position = worldPos;
 
-        BuildingInfo info = list[selected];
         bool canPlace = CanPlace(worldPos, info);
         ghostRenderer.color = canPlace
             ? new Color(0.25f, 0.9f, 0.3f, 0.45f)
@@ -105,19 +118,33 @@ public class BuildingPlacer : MonoBehaviour
         RefreshGhost();
     }
 
+    BuildingInfo CurrentInfo()
+    {
+        if (!Building.CoreExists())
+        {
+            BuildingInfo core;
+            if (CSVLoader.Instance.buildingInfoMap.TryGetValue("core", out core))
+                return core;
+            return null;
+        }
+
+        var list = CSVLoader.Instance.playerBuildingList;
+        if (list.Count == 0)
+            return null;
+        if (selected < 0 || selected >= list.Count)
+            selected = 0;
+        return list[selected];
+    }
+
     void RefreshGhost()
     {
         if (ghost == null)
             return;
 
-        var list = CSVLoader.Instance.buildingList;
-        if (list.Count == 0)
+        BuildingInfo info = CurrentInfo();
+        if (info == null)
             return;
 
-        if (selected >= list.Count)
-            selected = 0;
-
-        BuildingInfo info = list[selected];
         Vector2 size = info.Size;
         ghostVisual.localScale = new Vector3(size.x, size.y, 1f);
         ghostName.text = info.name;
@@ -154,12 +181,24 @@ public class BuildingPlacer : MonoBehaviour
                 return building;
         }
 
+        for (int i = 0; i < Building.All.Count; i++)
+        {
+            Building resource = Building.All[i];
+            if (resource == null || !resource.IsResource)
+                continue;
+
+            Vector2 localPoint = resource.transform.InverseTransformPoint(worldPos);
+            Vector2 half = resource.Info.Size * 0.5f;
+            if (Mathf.Abs(localPoint.x) <= half.x && Mathf.Abs(localPoint.y) <= half.y)
+                return resource;
+        }
+
         return null;
     }
 
     void Demolish(Building building)
     {
-        if (building == null || building.Info == null)
+        if (building == null || building.Info == null || building.IsResource)
             return;
 
         world.AddGold(building.Info.cost);
@@ -169,6 +208,8 @@ public class BuildingPlacer : MonoBehaviour
 
     bool CanPlace(Vector2 position, BuildingInfo info)
     {
+        if (info == null || info.IsResource)
+            return false;
         if (info.IsCore && Building.CoreExists())
             return false;
         if (!info.IsCore && !Building.CoreExists())
@@ -177,7 +218,30 @@ public class BuildingPlacer : MonoBehaviour
             return false;
         if (OverlapsBuilding(position, info.Size))
             return false;
+        if (!InRequiredResourceRange(position, info))
+            return false;
         return true;
+    }
+
+    bool InRequiredResourceRange(Vector2 position, BuildingInfo info)
+    {
+        if (info == null || string.IsNullOrEmpty(info.requireResource))
+            return true;
+
+        for (int i = 0; i < Building.All.Count; i++)
+        {
+            Building resource = Building.All[i];
+            if (resource == null || resource.Info == null || !resource.IsResource)
+                continue;
+            if (resource.Info.identifier != info.requireResource)
+                continue;
+            if (resource.Info.radius <= 0f)
+                continue;
+            if (Vector2.Distance(position, resource.transform.position) <= resource.Info.radius)
+                return true;
+        }
+
+        return false;
     }
 
     bool OverlapsBuilding(Vector2 position, Vector2 size)
@@ -196,6 +260,44 @@ public class BuildingPlacer : MonoBehaviour
     {
         if (!world.SpendGold(info.cost))
             return;
+
+        Spawn(position, info);
+        RefreshGhost();
+    }
+
+    public void SpawnStartingResources()
+    {
+        if (world.BoardBody == null)
+            return;
+
+        BuildingInfo rock;
+        if (!CSVLoader.Instance.buildingInfoMap.TryGetValue("rock", out rock) || rock == null)
+        {
+            Debug.LogError("未找到 identifier 为 rock 的资源建筑");
+            return;
+        }
+
+        SpawnResourceLocal(RandomBoardTopLocalX(rock.Size, -1), rock);
+        SpawnResourceLocal(RandomBoardTopLocalX(rock.Size, 1), rock);
+
+        RefreshGhost();
+    }
+
+    float RandomBoardTopLocalX(Vector2 size, int side)
+    {
+        float halfW = world.settings.boardWidth * 0.5f;
+        float margin = size.x * 0.5f + 0.2f;
+        float min = side < 0 ? -halfW + margin : margin;
+        float max = side < 0 ? -margin : halfW - margin;
+        if (min > max)
+            return side < 0 ? -margin : margin;
+        return Random.Range(min, max);
+    }
+
+    public Building Spawn(Vector3 position, BuildingInfo info)
+    {
+        if (info.IsResource)
+            return null;
 
         Vector2 size = info.Size;
 
@@ -229,6 +331,35 @@ public class BuildingPlacer : MonoBehaviour
         PushOverlappingBuildings(box);
         body.velocity = Vector2.zero;
         body.angularVelocity = 0f;
+        return building;
+    }
+
+    Building SpawnResourceLocal(float localX, BuildingInfo info)
+    {
+        if (world.BoardBody == null)
+            return null;
+
+        Vector2 size = info.Size;
+
+        var go = new GameObject(info.name);
+        go.transform.SetParent(world.BoardBody.transform, false);
+        go.transform.localPosition = new Vector3(
+            localX,
+            world.settings.boardHeight * 0.5f + size.y * 0.5f + 0.02f,
+            0f);
+        go.transform.localRotation = Quaternion.identity;
+
+        var visual = new GameObject("Visual");
+        visual.transform.SetParent(go.transform);
+        visual.transform.localPosition = Vector3.zero;
+        visual.transform.localScale = new Vector3(size.x, size.y, 1f);
+        var renderer = visual.AddComponent<SpriteRenderer>();
+        renderer.sprite = ShapeUtil.Hexagon(ColorFor(info.type));
+        renderer.sortingOrder = 5;
+
+        var building = go.AddComponent<Building>();
+        building.Setup(info);
+        return building;
     }
 
     void SeparateFromBoard(Collider2D placed)
@@ -265,7 +396,10 @@ public class BuildingPlacer : MonoBehaviour
                 continue;
 
             Building building = hit.GetComponent<Building>();
-            if (building == null)
+            Enemy enemy = hit.GetComponent<Enemy>();
+            if (building != null && building.IsResource)
+                continue;
+            if (building == null && (enemy == null || !enemy.IsMelee))
                 continue;
 
             ColliderDistance2D dist = Physics2D.Distance(placed, hit);
@@ -274,7 +408,7 @@ public class BuildingPlacer : MonoBehaviour
 
             Vector2 push = dist.normal * (-dist.distance + extra);
             Rigidbody2D other = hit.attachedRigidbody;
-            if (other == null)
+            if (other == null || other == world.BoardBody)
                 continue;
 
             other.position += push;
@@ -289,9 +423,12 @@ public class BuildingPlacer : MonoBehaviour
             case "core": return new Color(0.95f, 0.78f, 0.28f);
             case "mine": return new Color(0.62f, 0.45f, 0.28f);
             case "electricity": return new Color(0.95f, 0.82f, 0.25f);
+            case "sunElectricity": return new Color(1f, 0.88f, 0.28f);
             case "furnace": return new Color(0.82f, 0.38f, 0.18f);
             case "wall": return new Color(0.55f, 0.55f, 0.58f);
-            case "attack": return new Color(0.78f, 0.28f, 0.32f);
+            case "attack": return new Color(0.28f, 0.58f, 0.72f);
+            case "coinMachine": return new Color(0.92f, 0.72f, 0.18f);
+            case "resource": return new Color(0.58f, 0.5f, 0.42f);
             default: return new Color(0.7f, 0.7f, 0.7f);
         }
     }
@@ -308,8 +445,8 @@ public class BuildingPlacer : MonoBehaviour
         GUI.Label(new Rect(16f, Screen.height - 86f, 240f, 50f),
             "Gold " + Mathf.FloorToInt(world.Gold), goldStyle);
 
-        var list = CSVLoader.Instance.buildingList;
-        if (list.Count > 0)
+        var list = CSVLoader.Instance.playerBuildingList;
+        if (!Building.CoreExists() || list.Count > 0)
         {
             var hotStyle = new GUIStyle(GUI.skin.label)
             {
@@ -319,13 +456,21 @@ public class BuildingPlacer : MonoBehaviour
             hotStyle.normal.textColor = Color.black;
             hotStyle.hover.textColor = Color.black;
 
-            string hotkeys = "";
-            int count = list.Count < 9 ? list.Count : 9;
-            for (int i = 0; i < count; i++)
+            string hotkeys;
+            if (!Building.CoreExists())
             {
-                if (i > 0)
-                    hotkeys += "    ";
-                hotkeys += (i + 1) + " " + list[i].name;
+                hotkeys = "Place Core";
+            }
+            else
+            {
+                hotkeys = "";
+                int count = list.Count < 9 ? list.Count : 9;
+                for (int i = 0; i < count; i++)
+                {
+                    if (i > 0)
+                        hotkeys += "    ";
+                    hotkeys += (i + 1) + " " + list[i].name;
+                }
             }
 
             GUI.Label(new Rect(0f, Screen.height - 34f, Screen.width, 28f), hotkeys, hotStyle);

@@ -18,6 +18,7 @@ public class BuildingInfo
     public string identifier;
     public string name;
     public string type;
+    public string requireResource;
     public List<string> provide;
     public float cd;
     public List<float> shape;
@@ -27,6 +28,7 @@ public class BuildingInfo
     public float attackRange;
     public List<string> consume;
     public int cost;
+    public List<string> special;
 
     public List<ResourceAmount> ProvideList = new List<ResourceAmount>();
     public List<ResourceAmount> ConsumeList = new List<ResourceAmount>();
@@ -46,9 +48,38 @@ public class BuildingInfo
         get { return type == "core"; }
     }
 
+    public bool IsResource
+    {
+        get { return type == "resource"; }
+    }
+
+    public bool IsPlayerBuildable
+    {
+        get { return !IsCore && !IsResource; }
+    }
+
+    public bool RequiresTop
+    {
+        get { return HasSpecial("requireTop"); }
+    }
+
     public bool CanAttack
     {
         get { return attack > 0f; }
+    }
+
+    public bool HasSpecial(string flag)
+    {
+        if (special == null || string.IsNullOrEmpty(flag))
+            return false;
+
+        for (int i = 0; i < special.Count; i++)
+        {
+            if (special[i] == flag)
+                return true;
+        }
+
+        return false;
     }
 
     public void ParseAmounts()
@@ -99,6 +130,33 @@ public class EnemyInfo
     public float speed;
     public float attackCD;
     public float attackRange;
+    public bool isMelee;
+    public List<float> size;
+    public List<string> special;
+
+    public Vector2 Size
+    {
+        get
+        {
+            float w = size != null && size.Count > 0 ? size[0] : 0.5f;
+            float h = size != null && size.Count > 1 ? size[1] : w;
+            return new Vector2(w, h);
+        }
+    }
+
+    public bool HasSpecial(string flag)
+    {
+        if (special == null || string.IsNullOrEmpty(flag))
+            return false;
+
+        for (int i = 0; i < special.Count; i++)
+        {
+            if (special[i] == flag)
+                return true;
+        }
+
+        return false;
+    }
 }
 
 public class EncounterInfo
@@ -165,6 +223,7 @@ public class CSVLoader : Singleton<CSVLoader>
 {
     public Dictionary<string, BuildingInfo> buildingInfoMap = new Dictionary<string, BuildingInfo>();
     public List<BuildingInfo> buildingList = new List<BuildingInfo>();
+    public List<BuildingInfo> playerBuildingList = new List<BuildingInfo>();
     public Dictionary<string, EnemyInfo> enemyInfoMap = new Dictionary<string, EnemyInfo>();
     public List<EnemyInfo> enemyList = new List<EnemyInfo>();
     public List<EncounterInfo> encounterList = new List<EncounterInfo>();
@@ -179,10 +238,13 @@ public class CSVLoader : Singleton<CSVLoader>
 
         buildingList = CsvUtil.LoadObjects<BuildingInfo>("building");
         buildingInfoMap.Clear();
+        playerBuildingList.Clear();
         for (int i = 0; i < buildingList.Count; i++)
         {
             buildingList[i].ParseAmounts();
             buildingInfoMap[buildingList[i].identifier] = buildingList[i];
+            if (buildingList[i].IsPlayerBuildable)
+                playerBuildingList.Add(buildingList[i]);
         }
 
         enemyList = CsvUtil.LoadObjects<EnemyInfo>("enemy");

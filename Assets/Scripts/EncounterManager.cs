@@ -136,6 +136,29 @@ public class EncounterManager : MonoBehaviour
 
         gate.SetCountdown(remain);
     }
+
+    public bool TryRushAt(Vector2 worldPos)
+    {
+        if (world != null && world.HasEnded)
+            return false;
+        if (gate == null || !gate.gameObject.activeSelf || spawning)
+            return false;
+        if (!gate.Contains(worldPos))
+            return false;
+
+        List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+        if (list == null || waveIndex >= list.Count)
+            return false;
+
+        float remain = nextWaveAt - gameTime;
+        if (remain <= 0f)
+            return false;
+
+        if (world != null)
+            world.AddGold(Mathf.CeilToInt(remain));
+        nextWaveAt = gameTime;
+        return true;
+    }
 }
 
 public class SpawnGate : MonoBehaviour
@@ -160,6 +183,10 @@ public class SpawnGate : MonoBehaviour
         var renderer = visual.AddComponent<SpriteRenderer>();
         renderer.sprite = ShapeUtil.Square(new Color(0.52f, 0.18f, 0.78f, 0.45f));
         renderer.sortingOrder = 6;
+
+        var col = gameObject.AddComponent<CircleCollider2D>();
+        col.radius = 0.85f;
+        col.isTrigger = true;
 
         var ringGo = new GameObject("Ring");
         ringGo.transform.SetParent(transform);
@@ -192,6 +219,12 @@ public class SpawnGate : MonoBehaviour
         countdown.characterSize = 0.07f;
         countdown.color = Color.white;
         textGo.GetComponent<MeshRenderer>().sortingOrder = 8;
+    }
+
+    public bool Contains(Vector2 worldPos)
+    {
+        var col = GetComponent<Collider2D>();
+        return col != null && col.OverlapPoint(worldPos);
     }
 
     public void SetCountdown(float seconds)

@@ -53,6 +53,13 @@ public class BalanceWorld : MonoBehaviour
         Gold = GoldStart;
     }
 
+    void Start()
+    {
+        var placer = GetComponent<BuildingPlacer>();
+        if (placer != null)
+            placer.SpawnStartingResources();
+    }
+
     void Update()
     {
         if (IsRestarting)
@@ -152,7 +159,10 @@ public class BalanceWorld : MonoBehaviour
 
         Building[] buildings = FindObjectsOfType<Building>();
         for (int i = 0; i < buildings.Length; i++)
+        {
+            buildings[i].gameObject.SetActive(false);
             Destroy(buildings[i].gameObject);
+        }
 
         BoardBody.velocity = Vector2.zero;
         BoardBody.angularVelocity = 0f;
@@ -167,6 +177,10 @@ public class BalanceWorld : MonoBehaviour
         var encounters = GetComponent<EncounterManager>();
         if (encounters != null)
             encounters.Restart();
+
+        var placer = GetComponent<BuildingPlacer>();
+        if (placer != null)
+            placer.SpawnStartingResources();
     }
 
     void CheckFail()
@@ -186,6 +200,32 @@ public class BalanceWorld : MonoBehaviour
             if (tiltTimer >= settings.failHoldSeconds)
                 Fail();
         }
+
+        CheckCoreOffScreen();
+    }
+
+    void CheckCoreOffScreen()
+    {
+        if (HasEnded)
+            return;
+
+        Building core = Building.FindCore();
+        if (core == null)
+            return;
+
+        Camera cam = Camera.main;
+        if (cam == null)
+            return;
+
+        var col = core.GetComponent<Collider2D>();
+        Bounds bounds = col != null
+            ? col.bounds
+            : new Bounds(core.transform.position, core.Info != null ? (Vector3)core.Info.Size : Vector3.one);
+
+        Vector3 min = cam.WorldToViewportPoint(bounds.min);
+        Vector3 max = cam.WorldToViewportPoint(bounds.max);
+        if (max.x < 0f || min.x > 1f || max.y < 0f || min.y > 1f)
+            Fail();
     }
 
     void CreateFulcrum()
@@ -313,6 +353,32 @@ public static class ShapeUtil
             {
                 float nx = (x + 0.5f) / size;
                 bool inside = nx >= 0.5f - half && nx <= 0.5f + half;
+                tex.SetPixel(x, y, inside ? color : Color.clear);
+            }
+        }
+
+        tex.Apply();
+        tex.wrapMode = TextureWrapMode.Clamp;
+        return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
+    }
+
+    public static Sprite Hexagon(Color color)
+    {
+        const int size = 64;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        float cx = 0.5f;
+        float cy = 0.5f;
+        float r = 0.48f;
+        for (int y = 0; y < size; y++)
+        {
+            float ny = (y + 0.5f) / size;
+            for (int x = 0; x < size; x++)
+            {
+                float nx = (x + 0.5f) / size;
+                float dx = Mathf.Abs(nx - cx);
+                float dy = Mathf.Abs(ny - cy);
+                bool inside = dx <= r && r * dy + 0.5f * r * dx <= r * r;
                 tex.SetPixel(x, y, inside ? color : Color.clear);
             }
         }
