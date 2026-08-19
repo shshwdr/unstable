@@ -1,4 +1,5 @@
-time,enemies,interval,pos
-80,normal_2,0.3,0|5
-40,normal_2|speed_2,0.3,-5|5
-40,normal_4|speed_4,0.3,7|5
+level,time,enemies,interval,pos
+1,60,normal_1,1,0|5
+2,100,normal_2,1,0|5
+2,60,normal_2|speed_2,1,-5|5
+2,60,melee_1|speed_4|normal_2|melee_1,1,7|5

@@ -14,11 +14,13 @@ public class EncounterManager : MonoBehaviour
     float nextSpawnAt;
     float nextWaveAt;
 
+    bool hidden;
+
     public bool IsComplete
     {
         get
         {
-            List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+            List<EncounterInfo> list = CurrentEncounters();
             if (list == null || list.Count == 0)
                 return false;
             return !spawning && waveIndex >= list.Count;
@@ -42,20 +44,28 @@ public class EncounterManager : MonoBehaviour
     {
         spawnQueue.Clear();
         spawning = false;
+        hidden = false;
         waveIndex = 0;
         interval = 0f;
         nextSpawnAt = 0f;
-        List<EncounterInfo> list = CSVLoader.Instance.encounterList;
-        nextWaveAt = list != null && list.Count > 0 ? list[0].time : 0f;
+        List<EncounterInfo> list = CurrentEncounters();
+        nextWaveAt = FirstWaveAt(list != null && list.Count > 0 ? list[0] : null);
         PlaceGate();
     }
 
     void Update()
     {
-        if (world != null && world.HasEnded)
+        if (world != null && world.IsGameOver)
             return;
 
         gameTime += Time.deltaTime;
+
+        if (hidden)
+        {
+            if (gate != null && gate.gameObject.activeSelf)
+                gate.gameObject.SetActive(false);
+            return;
+        }
 
         if (spawning)
             TickSpawn();
@@ -67,7 +77,7 @@ public class EncounterManager : MonoBehaviour
 
     void TryStartWave()
     {
-        List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+        List<EncounterInfo> list = CurrentEncounters();
         if (list == null || waveIndex >= list.Count)
             return;
         if (gameTime < nextWaveAt)
@@ -100,9 +110,9 @@ public class EncounterManager : MonoBehaviour
             spawning = false;
             waveIndex++;
             PlaceGate();
-            List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+            List<EncounterInfo> list = CurrentEncounters();
             if (list != null && waveIndex < list.Count)
-                nextWaveAt = gameTime + list[waveIndex].time;
+                nextWaveAt = NextWaveAt(gameTime, list[waveIndex]);
         }
     }
 
@@ -111,15 +121,48 @@ public class EncounterManager : MonoBehaviour
         if (gate == null)
             return;
 
-        List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+        if (hidden)
+        {
+            gate.gameObject.SetActive(false);
+            return;
+        }
+
+        List<EncounterInfo> list = CurrentEncounters();
         if (list == null || waveIndex >= list.Count)
         {
             gate.gameObject.SetActive(false);
             return;
         }
 
+        EncounterInfo encounter = list[waveIndex];
         gate.gameObject.SetActive(true);
-        gate.transform.position = list[waveIndex].Position;
+        gate.transform.position = encounter.Position;
+    }
+
+    public void SetHidden(bool value)
+    {
+        hidden = value;
+        PlaceGate();
+    }
+
+    public void TriggerFirst()
+    {
+        hidden = false;
+        List<EncounterInfo> list = CurrentEncounters();
+        if (list == null || list.Count == 0)
+        {
+            PlaceGate();
+            return;
+        }
+
+        if (!spawning && waveIndex < list.Count)
+        {
+            EncounterInfo encounter = list[waveIndex];
+            float delay = encounter.time < 0f ? 0f : encounter.time;
+            nextWaveAt = gameTime + delay;
+        }
+
+        PlaceGate();
     }
 
     void UpdateCountdown()
@@ -127,7 +170,7 @@ public class EncounterManager : MonoBehaviour
         if (gate == null || !gate.gameObject.activeSelf)
             return;
 
-        List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+        List<EncounterInfo> list = CurrentEncounters();
         float remain = 0f;
         if (spawning)
             remain = nextSpawnAt - gameTime;
@@ -139,16 +182,22 @@ public class EncounterManager : MonoBehaviour
 
     public bool TryRushAt(Vector2 worldPos)
     {
-        if (world != null && world.HasEnded)
+        if (world != null && world.IsGameOver)
             return false;
         if (gate == null || !gate.gameObject.activeSelf || spawning)
             return false;
         if (!gate.Contains(worldPos))
             return false;
 
-        List<EncounterInfo> list = CSVLoader.Instance.encounterList;
+        List<EncounterInfo> list = CurrentEncounters();
         if (list == null || waveIndex >= list.Count)
             return false;
+
+        if (float.IsInfinity(nextWaveAt))
+        {
+            nextWaveAt = gameTime;
+            return true;
+        }
 
         float remain = nextWaveAt - gameTime;
         if (remain <= 0f)
@@ -158,6 +207,40 @@ public class EncounterManager : MonoBehaviour
             world.AddGold(Mathf.CeilToInt(remain));
         nextWaveAt = gameTime;
         return true;
+    }
+
+    public void CompleteAll()
+    {
+        if (world != null && world.IsGameOver)
+            return;
+
+        spawnQueue.Clear();
+        spawning = false;
+        List<EncounterInfo> list = CurrentEncounters();
+        waveIndex = list != null ? list.Count : 0;
+        PlaceGate();
+    }
+
+    List<EncounterInfo> CurrentEncounters()
+    {
+        string id = null;
+        if (world != null && world.CurrentLevel != null)
+            id = world.CurrentLevel.identifier;
+        return CSVLoader.Instance.GetEncountersForLevel(id);
+    }
+
+    static float FirstWaveAt(EncounterInfo encounter)
+    {
+        if (encounter == null || encounter.time < 0f)
+            return float.PositiveInfinity;
+        return encounter.time;
+    }
+
+    static float NextWaveAt(float now, EncounterInfo encounter)
+    {
+        if (encounter == null || encounter.time < 0f)
+            return float.PositiveInfinity;
+        return now + encounter.time;
     }
 }
 
@@ -231,7 +314,10 @@ public class SpawnGate : MonoBehaviour
     {
         if (countdown == null)
             return;
-        countdown.text = Mathf.Max(0, Mathf.CeilToInt(seconds)).ToString();
+        if (float.IsInfinity(seconds) || seconds > 99999f)
+            countdown.text = "!";
+        else
+            countdown.text = Mathf.Max(0, Mathf.CeilToInt(seconds)).ToString();
     }
 
     void LateUpdate()

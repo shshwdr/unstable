@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BalanceWorld : MonoBehaviour
@@ -10,7 +11,11 @@ public class BalanceWorld : MonoBehaviour
     public bool IsGameOver { get; private set; }
     public bool IsVictory { get; private set; }
     public bool IsRestarting { get; private set; }
+    public bool IsPaused { get; private set; }
+    public bool IsTutorialPaused { get; private set; }
     public bool HasEnded { get { return IsGameOver || IsVictory; } }
+    public bool IsAllClearPopup { get { return showAllClearPopup; } }
+    public int LevelIndex { get { return levelIndex; } }
     public float Gold { get; private set; }
 
     public const float GoldStart = 100f;
@@ -18,6 +23,10 @@ public class BalanceWorld : MonoBehaviour
     public float BoardTilt { get; private set; }
 
     float tiltTimer;
+    TextMesh tiltHint;
+    const float TiltHintAngle = 20f;
+    int levelIndex;
+    bool showAllClearPopup;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
@@ -29,6 +38,8 @@ public class BalanceWorld : MonoBehaviour
         go.AddComponent<BalanceWorld>();
         go.AddComponent<BuildingPlacer>();
         go.AddComponent<EncounterManager>();
+        go.AddComponent<CheatManager>();
+        go.AddComponent<TutorialManager>();
     }
 
     void Awake()
@@ -48,6 +59,7 @@ public class BalanceWorld : MonoBehaviour
 
         CreateFulcrum();
         CreateBoard();
+        CreateTiltHint();
         FitCamera();
         ApplyPhysics();
         Gold = GoldStart;
@@ -65,13 +77,39 @@ public class BalanceWorld : MonoBehaviour
         if (IsRestarting)
             IsRestarting = false;
 
+        var tutorial = GetComponent<TutorialManager>();
+        bool blocked = tutorial != null && tutorial.BlocksInput;
+
+        if (!blocked && !IsGameOver && Input.GetKeyDown(KeyCode.Space))
+            SetPaused(!IsPaused);
+
+        if (IsGameOver && Input.GetKeyDown(KeyCode.R))
+            Restart();
+
+        bool enter = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
+        if (!blocked && enter && !showAllClearPopup)
+        {
+            bool canFinish = IsVictory || (!IsGameOver && tutorial != null && tutorial.AllowEnterToFinish);
+            if (canFinish)
+            {
+                if (HasNextLevel)
+                {
+                    GoToNextLevel();
+                    return;
+                }
+                if (IsVictory)
+                    showAllClearPopup = true;
+            }
+        }
+
+        if (IsPaused || IsTutorialPaused)
+            return;
+
         ApplyPhysics();
         TickGold();
         CheckFail();
         CheckVictory();
-
-        if (HasEnded && Input.GetKeyDown(KeyCode.R))
-            Restart();
+        RefreshTiltHint();
     }
 
     void FixedUpdate()
@@ -121,17 +159,96 @@ public class BalanceWorld : MonoBehaviour
         Gold += amount;
     }
 
+    public LevelInfo CurrentLevel
+    {
+        get
+        {
+            var list = CSVLoader.Instance.levelList;
+            if (list == null || list.Count == 0 || levelIndex < 0 || levelIndex >= list.Count)
+                return null;
+            return list[levelIndex];
+        }
+    }
+
+    public bool HasNextLevel
+    {
+        get
+        {
+            var list = CSVLoader.Instance.levelList;
+            return list != null && levelIndex + 1 < list.Count;
+        }
+    }
+
+    public List<BuildingInfo> CurrentPlayerBuildings()
+    {
+        var tutorial = GetComponent<TutorialManager>();
+        if (tutorial != null)
+            return tutorial.BuildableBuildings;
+        LevelInfo level = CurrentLevel;
+        if (level != null)
+            return level.playerBuildings;
+        return CSVLoader.Instance.playerBuildingList;
+    }
+
+    public void GoToNextLevel()
+    {
+        if (!HasNextLevel)
+            return;
+        levelIndex++;
+        Restart();
+    }
+
+    public void JumpToLevel(int index)
+    {
+        var list = CSVLoader.Instance.levelList;
+        if (list == null || index < 0 || index >= list.Count)
+            return;
+        levelIndex = index;
+        Restart();
+    }
+
+    public void SetPaused(bool paused)
+    {
+        if (IsGameOver)
+            paused = false;
+        IsPaused = paused;
+        ApplyTimeScale();
+    }
+
+    public void SetTutorialPaused(bool paused)
+    {
+        if (IsGameOver)
+            paused = false;
+        IsTutorialPaused = paused;
+        ApplyTimeScale();
+    }
+
+    void ApplyTimeScale()
+    {
+        Time.timeScale = !IsGameOver && (IsPaused || IsTutorialPaused) ? 0f : 1f;
+    }
+
+    void OnDestroy()
+    {
+        Time.timeScale = 1f;
+    }
+
     public void Fail()
     {
         if (HasEnded)
             return;
         IsGameOver = true;
+        var tutorial = GetComponent<TutorialManager>();
+        if (tutorial != null)
+            tutorial.StopForGameEnd();
+        SetTutorialPaused(false);
+        SetPaused(false);
         Projectile.ClearAll();
     }
 
     void TickGold()
     {
-        if (HasEnded)
+        if (IsGameOver)
             return;
         Gold += GoldPerSecond * Time.deltaTime;
     }
@@ -141,6 +258,10 @@ public class BalanceWorld : MonoBehaviour
         if (HasEnded)
             return;
 
+        var tutorial = GetComponent<TutorialManager>();
+        if (tutorial != null && tutorial.IsPlaying)
+            return;
+
         var encounters = GetComponent<EncounterManager>();
         if (encounters == null || !encounters.IsComplete)
             return;
@@ -148,11 +269,16 @@ public class BalanceWorld : MonoBehaviour
             return;
 
         IsVictory = true;
-        Projectile.ClearAll();
+        showAllClearPopup = false;
+        SetTutorialPaused(false);
+        SetPaused(false);
     }
 
     public void Restart()
     {
+        SetTutorialPaused(false);
+        SetPaused(false);
+        showAllClearPopup = false;
         IsRestarting = true;
         Projectile.ClearAll();
         Enemy.ClearAll();
@@ -166,8 +292,13 @@ public class BalanceWorld : MonoBehaviour
 
         BoardBody.velocity = Vector2.zero;
         BoardBody.angularVelocity = 0f;
+        var interpolation = BoardBody.interpolation;
+        BoardBody.interpolation = RigidbodyInterpolation2D.None;
         BoardBody.rotation = 0f;
         BoardBody.position = settings.pivotPosition;
+        BoardBody.transform.SetPositionAndRotation(settings.pivotPosition, Quaternion.identity);
+        Physics2D.SyncTransforms();
+        BoardBody.interpolation = interpolation;
 
         IsGameOver = false;
         IsVictory = false;
@@ -180,7 +311,14 @@ public class BalanceWorld : MonoBehaviour
 
         var placer = GetComponent<BuildingPlacer>();
         if (placer != null)
+        {
+            placer.ResetPlacement();
             placer.SpawnStartingResources();
+        }
+
+        var tutorial = GetComponent<TutorialManager>();
+        if (tutorial != null)
+            tutorial.OnLevelRestart();
     }
 
     void CheckFail()
@@ -275,6 +413,38 @@ public class BalanceWorld : MonoBehaviour
         hinge.enableCollision = false;
     }
 
+    void CreateTiltHint()
+    {
+        var go = new GameObject("TiltHint");
+        go.transform.SetParent(transform);
+        tiltHint = go.AddComponent<TextMesh>();
+        tiltHint.text = "press 0 to destroy a building";
+        tiltHint.anchor = TextAnchor.UpperCenter;
+        tiltHint.alignment = TextAlignment.Center;
+        tiltHint.fontSize = 48;
+        tiltHint.characterSize = 0.12f;
+        tiltHint.color = new Color(0.85f, 0.15f, 0.15f);
+        go.GetComponent<MeshRenderer>().sortingOrder = 16;
+        go.SetActive(false);
+    }
+
+    void RefreshTiltHint()
+    {
+        if (tiltHint == null)
+            return;
+
+        bool show = !HasEnded && BoardBody != null && BoardTilt >= TiltHintAngle;
+        tiltHint.gameObject.SetActive(show);
+        if (!show)
+            return;
+
+        float below = settings != null ? settings.boardHeight * 0.5f + 0.7f : 0.9f;
+        tiltHint.transform.position = BoardBody.transform.TransformPoint(new Vector3(0f, -below, -0.1f));
+        tiltHint.transform.rotation = Quaternion.identity;
+        float pulse = 1f + 0.16f * Mathf.Sin(Time.time * 5.5f);
+        tiltHint.transform.localScale = new Vector3(pulse, pulse, 1f);
+    }
+
     void FitCamera()
     {
         Camera cam = Camera.main;
@@ -289,7 +459,69 @@ public class BalanceWorld : MonoBehaviour
 
     void OnGUI()
     {
-        if (!HasEnded)
+        var hintStyle = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.UpperLeft,
+            fontSize = 18,
+            fontStyle = FontStyle.Bold
+        };
+        hintStyle.normal.textColor = Color.black;
+        hintStyle.hover.textColor = Color.black;
+        GUI.Label(new Rect(8f, 8f, 480f, 28f), "Ctrl: show/hide resources", hintStyle);
+
+        LevelInfo level = CurrentLevel;
+        if (level != null && !string.IsNullOrEmpty(level.name))
+        {
+            var nameStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 32,
+                fontStyle = FontStyle.Bold
+            };
+            nameStyle.normal.textColor = Color.black;
+            nameStyle.hover.textColor = Color.black;
+            GUI.Label(new Rect(0f, 8f, Screen.width, 44f), level.name, nameStyle);
+        }
+
+        if (IsPaused && !IsTutorialPaused)
+        {
+            var pauseStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 48,
+                fontStyle = FontStyle.Bold,
+                wordWrap = true
+            };
+            pauseStyle.normal.textColor = Color.black;
+            pauseStyle.hover.textColor = Color.black;
+            GUI.Label(new Rect(0f, 52f, Screen.width, 70f), "space to unpause", pauseStyle);
+        }
+
+        if (showAllClearPopup)
+        {
+            DrawAllClearPopup();
+            return;
+        }
+
+        if (IsVictory)
+        {
+            var nextStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 28,
+                fontStyle = FontStyle.Bold,
+                wordWrap = true
+            };
+            nextStyle.normal.textColor = Color.black;
+            nextStyle.hover.textColor = Color.black;
+            string hint = HasNextLevel
+                ? "All enemies cleared, press Enter to go to the next level"
+                : "All enemies cleared, press Enter";
+            GUI.Label(new Rect(40f, 52f, Screen.width - 80f, 70f), hint, nextStyle);
+            return;
+        }
+
+        if (!IsGameOver)
             return;
 
         float boxW = 360f;
@@ -304,7 +536,7 @@ public class BalanceWorld : MonoBehaviour
             fontStyle = FontStyle.Bold
         };
         style.normal.textColor = Color.white;
-        GUI.Label(new Rect(box.x, box.y + 18f, box.width, 50f), IsVictory ? "Victory" : "Defeat", style);
+        GUI.Label(new Rect(box.x, box.y + 18f, box.width, 50f), "Defeat", style);
 
         var sub = new GUIStyle(GUI.skin.label)
         {
@@ -313,6 +545,46 @@ public class BalanceWorld : MonoBehaviour
         };
         sub.normal.textColor = Color.white;
         GUI.Label(new Rect(box.x, box.y + 78f, box.width, 30f), "Press R to restart", sub);
+    }
+
+    void DrawAllClearPopup()
+    {
+        float boxW = 520f;
+        float boxH = 240f;
+        var box = new Rect((Screen.width - boxW) * 0.5f, Screen.height * 0.28f, boxW, boxH);
+        GUI.Box(box, "");
+
+        var title = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = 40,
+            fontStyle = FontStyle.Bold
+        };
+        title.normal.textColor = Color.white;
+        GUI.Label(new Rect(box.x, box.y + 18f, box.width, 50f), "Victory", title);
+
+        var sub = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = 22,
+            wordWrap = true
+        };
+        sub.normal.textColor = Color.white;
+        GUI.Label(new Rect(box.x + 20f, box.y + 72f, box.width - 40f, 50f),
+            "All levels complete", sub);
+
+        var btn = new GUIStyle(GUI.skin.button)
+        {
+            fontSize = 20,
+            fontStyle = FontStyle.Bold
+        };
+        float btnW = 210f;
+        float btnH = 48f;
+        float btnY = box.y + boxH - 70f;
+        if (GUI.Button(new Rect(box.x + 30f, btnY, btnW, btnH), "Stay here", btn))
+            showAllClearPopup = false;
+        if (GUI.Button(new Rect(box.x + box.width - 30f - btnW, btnY, btnW, btnH), "Restart last level", btn))
+            Restart();
     }
 }
 

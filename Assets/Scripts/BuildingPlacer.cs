@@ -1,15 +1,37 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class BuildingPlacer : MonoBehaviour
 {
+    static readonly Color GiveArrowColor = new Color(1f, 0.78f, 0.12f, 0.95f);
+    static readonly Color TakeArrowColor = new Color(0.25f, 0.78f, 1f, 0.95f);
+
     BalanceWorld world;
-    int selected;
+    int selected = -1;
+    bool demolishMode;
+    bool buttonHold;
+    bool dragging;
+    Vector2 holdStartGui;
+    Rect[] buttonRects;
+    Rect barRect;
+    const float DragThreshold = 12f;
     Transform ghost;
     Transform ghostVisual;
     SpriteRenderer ghostRenderer;
     LineRenderer radiusCircle;
+    LineRenderer hoverRadius;
     TextMesh ghostName;
+    TextMesh ghostWarning;
+    SpriteRenderer ghostWarningIcon;
     Building hovered;
+    Building demolishShake;
+    Material lineMaterial;
+    readonly List<Building> highlighted = new List<Building>();
+    readonly List<LineRenderer> arrows = new List<LineRenderer>();
+    int usedArrows;
+    Sprite demolishIcon;
+    Sprite goldIcon;
+    Texture2D goldTexture;
 
     void Awake()
     {
@@ -35,9 +57,11 @@ public class BuildingPlacer : MonoBehaviour
         ghostName.anchor = TextAnchor.MiddleCenter;
         ghostName.alignment = TextAlignment.Center;
         ghostName.fontSize = 48;
-        ghostName.characterSize = 0.06f;
+        ghostName.characterSize = 0.12f;
         ghostName.color = Color.white;
         nameGo.GetComponent<MeshRenderer>().sortingOrder = 21;
+
+        CreateGhostWarning();
 
         var circleGo = new GameObject("Radius");
         circleGo.transform.SetParent(ghost);
@@ -52,44 +76,140 @@ public class BuildingPlacer : MonoBehaviour
         radiusCircle.endColor = new Color(0.2f, 0.85f, 1f, 0.7f);
         radiusCircle.sortingOrder = 19;
 
+        var hoverGo = new GameObject("HoverRadius");
+        hoverGo.transform.SetParent(transform);
+        hoverRadius = hoverGo.AddComponent<LineRenderer>();
+        hoverRadius.useWorldSpace = true;
+        hoverRadius.loop = true;
+        hoverRadius.startWidth = 0.05f;
+        hoverRadius.endWidth = 0.05f;
+        hoverRadius.material = LineMaterial();
+        hoverRadius.startColor = new Color(0.2f, 0.85f, 1f, 0.7f);
+        hoverRadius.endColor = new Color(0.2f, 0.85f, 1f, 0.7f);
+        hoverRadius.sortingOrder = 19;
+        hoverRadius.enabled = false;
+
         RefreshGhost();
+    }
+
+    void OnDisable()
+    {
+        ClearLinkPreview();
+        StopDemolishShake();
     }
 
     void Update()
     {
-        var list = CSVLoader.Instance.playerBuildingList;
-        if (Building.CoreExists())
-        {
-            for (int i = 0; i < list.Count && i < 9; i++)
-            {
-                if (Input.GetKeyDown(KeyCode.Alpha1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i))
-                    Select(i);
-            }
-        }
+        if (Input.GetKeyDown(KeyCode.LeftControl) || Input.GetKeyDown(KeyCode.RightControl))
+            Building.ToggleResourceStock();
 
-        if (world.HasEnded || Camera.main == null)
+        if (world.IsGameOver || Camera.main == null)
         {
             ghost.gameObject.SetActive(false);
             hovered = null;
+            ClearLinkPreview();
+            StopDemolishShake();
             return;
+        }
+
+        var tutorial = TutorialManager.Instance;
+        if ((tutorial != null && tutorial.BlocksInput) || world.IsAllClearPopup)
+        {
+            ghost.gameObject.SetActive(false);
+            hovered = null;
+            ClearLinkPreview();
+            StopDemolishShake();
+            return;
+        }
+
+        var list = BuildableList();
+        bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        if (!shift && Building.CoreExists() && list != null)
+        {
+            int hotCount = list.Count < 9 ? list.Count : 9;
+            for (int i = 0; i < hotCount; i++)
+            {
+                if (Input.GetKeyDown(KeyCode.Alpha1 + i) || Input.GetKeyDown(KeyCode.Keypad1 + i))
+                    SelectClick(i);
+            }
+
+            if (DestroyVisible() && (Input.GetKeyDown(KeyCode.Alpha0) || Input.GetKeyDown(KeyCode.Keypad0)))
+                SelectDemolish();
         }
 
         Vector3 worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         worldPos.z = 0f;
         hovered = FindBuildingAt(worldPos);
+        RefreshDemolishShake();
+        bool overBar = OverBuildBar();
+        int hitButton = HitBuildButton();
 
-        if (hovered != null)
+        if (Input.GetMouseButtonDown(1) && (dragging || buttonHold || selected >= 0 || demolishMode))
         {
-            ghost.gameObject.SetActive(false);
-            if (Input.GetMouseButtonDown(1))
-                Demolish(hovered);
+            ResetPlacement();
             return;
         }
 
-        var encounters = GetComponent<EncounterManager>();
-        if (Input.GetMouseButtonDown(0) && encounters != null && encounters.TryRushAt(worldPos))
+        if (Building.CoreExists() && Input.GetMouseButtonDown(0) && hitButton >= 0)
+            BeginHold(hitButton);
+
+        if (buttonHold)
+        {
+            if (!dragging && Vector2.Distance(GuiMouse(), holdStartGui) >= DragThreshold)
+                dragging = true;
+
+            if (Input.GetMouseButtonUp(0))
+            {
+                if (dragging)
+                {
+                    if (demolishMode)
+                    {
+                        if (!overBar && CanDemolish(hovered))
+                            Demolish(hovered);
+                    }
+                    else
+                    {
+                        BuildingInfo dragInfo = CurrentInfo();
+                        if (!overBar && hovered == null && CanPlace(worldPos, dragInfo))
+                            Place(worldPos, dragInfo);
+                    }
+
+                    ResetPlacement();
+                }
+
+                buttonHold = false;
+            }
+        }
+
+        if (hovered != null && (!dragging || demolishMode))
         {
             ghost.gameObject.SetActive(false);
+            UpdateLinkPreview(hovered.transform.position, hovered.Info, hovered);
+            if (!dragging && demolishMode && Input.GetMouseButtonDown(0) && CanDemolish(hovered))
+                Demolish(hovered);
+            if (!dragging || demolishMode)
+                return;
+        }
+
+        var encounters = GetComponent<EncounterManager>();
+        if (!overBar && !buttonHold && !demolishMode && Input.GetMouseButtonDown(0) &&
+            encounters != null && encounters.TryRushAt(worldPos))
+        {
+            ghost.gameObject.SetActive(false);
+            return;
+        }
+
+        if (overBar && !dragging)
+        {
+            ghost.gameObject.SetActive(false);
+            ClearLinkPreview();
+            return;
+        }
+
+        if (demolishMode)
+        {
+            ghost.gameObject.SetActive(false);
+            ClearLinkPreview();
             return;
         }
 
@@ -97,25 +217,92 @@ public class BuildingPlacer : MonoBehaviour
         if (info == null)
         {
             ghost.gameObject.SetActive(false);
+            ClearLinkPreview();
             return;
         }
 
         ghost.gameObject.SetActive(true);
         ghost.position = worldPos;
+        UpdateLinkPreview(worldPos, info, null);
+        UpdateGhostWarning(worldPos, info);
 
-        bool canPlace = CanPlace(worldPos, info);
+        bool canPlace = !overBar && CanPlace(worldPos, info);
         ghostRenderer.color = canPlace
             ? new Color(0.25f, 0.9f, 0.3f, 0.45f)
             : new Color(0.95f, 0.2f, 0.2f, 0.45f);
 
-        if (Input.GetMouseButtonDown(0) && canPlace)
+        if (!buttonHold && !dragging && Input.GetMouseButtonDown(0) && canPlace)
             Place(worldPos, info);
     }
 
-    void Select(int index)
+    void BeginHold(int index)
+    {
+        var list = BuildableList();
+        if (list != null && index == list.Count)
+            SelectDemolish();
+        else
+        {
+            selected = index;
+            demolishMode = false;
+        }
+
+        buttonHold = true;
+        dragging = false;
+        holdStartGui = GuiMouse();
+        RefreshGhost();
+    }
+
+    void SelectClick(int index)
     {
         selected = index;
+        demolishMode = false;
+        buttonHold = false;
+        dragging = false;
+        StopDemolishShake();
         RefreshGhost();
+    }
+
+    void SelectDemolish()
+    {
+        selected = -1;
+        demolishMode = true;
+        buttonHold = false;
+        dragging = false;
+        if (ghost != null)
+            ghost.gameObject.SetActive(false);
+        RefreshGhost();
+    }
+
+    public void ResetPlacement()
+    {
+        selected = -1;
+        demolishMode = false;
+        buttonHold = false;
+        dragging = false;
+        StopDemolishShake();
+        if (ghost != null)
+            ghost.gameObject.SetActive(false);
+        RefreshGhost();
+    }
+
+    void RefreshDemolishShake()
+    {
+        Building want = demolishMode && CanDemolish(hovered) ? hovered : null;
+        if (demolishShake == want)
+            return;
+        if (demolishShake != null)
+            demolishShake.SetDeleteShake(false);
+        demolishShake = want;
+        if (demolishShake != null)
+            demolishShake.SetDeleteShake(true);
+    }
+
+    void StopDemolishShake()
+    {
+        if (demolishShake == null)
+            return;
+        demolishShake.SetDeleteShake(false);
+        demolishShake = null;
     }
 
     BuildingInfo CurrentInfo()
@@ -128,11 +315,9 @@ public class BuildingPlacer : MonoBehaviour
             return null;
         }
 
-        var list = CSVLoader.Instance.playerBuildingList;
-        if (list.Count == 0)
+        var list = BuildableList();
+        if (list == null || selected < 0 || selected >= list.Count)
             return null;
-        if (selected < 0 || selected >= list.Count)
-            selected = 0;
         return list[selected];
     }
 
@@ -151,6 +336,115 @@ public class BuildingPlacer : MonoBehaviour
         ghostVisual.localScale = new Vector3(scale.x, scale.y, 1f);
         ghostName.text = info.name;
         SetCircle(info.radius);
+        LayoutGhostWarning(info);
+    }
+
+    void CreateGhostWarning()
+    {
+        Color warningRed = new Color(1f, 0.23f, 0.23f, 1f);
+        var textGo = new GameObject("Warning");
+        textGo.transform.SetParent(ghost);
+        textGo.transform.localPosition = new Vector3(0f, 0.5f, -0.1f);
+        ghostWarning = textGo.AddComponent<TextMesh>();
+        ghostWarning.anchor = TextAnchor.LowerCenter;
+        ghostWarning.alignment = TextAlignment.Center;
+        ghostWarning.fontSize = 48;
+        ghostWarning.characterSize = 0.1f;
+        ghostWarning.color = warningRed;
+        ghostWarning.richText = false;
+        textGo.GetComponent<MeshRenderer>().sortingOrder = 22;
+        textGo.SetActive(false);
+
+        var iconGo = new GameObject("WarningIcon");
+        iconGo.transform.SetParent(ghost);
+        iconGo.transform.localPosition = new Vector3(0f, 0.5f, -0.1f);
+        ghostWarningIcon = iconGo.AddComponent<SpriteRenderer>();
+        ghostWarningIcon.sortingOrder = 23;
+        ghostWarningIcon.color = warningRed;
+        Sprite sprite = Resources.Load<Sprite>("warning");
+        ghostWarningIcon.sprite = sprite;
+        if (sprite != null)
+        {
+            float spriteSize = Mathf.Max(sprite.bounds.size.x, sprite.bounds.size.y);
+            float scale = spriteSize > 0.0001f ? 0.42f / spriteSize : 1f;
+            iconGo.transform.localScale = new Vector3(scale, scale, 1f);
+        }
+
+        iconGo.SetActive(false);
+    }
+
+    void LayoutGhostWarning(BuildingInfo info)
+    {
+        if (ghostWarning == null || info == null)
+            return;
+
+        float top = BuildingArt.PhysicsLocalBounds(info).max.y;
+        ghostWarning.transform.localPosition = new Vector3(0f, top + 0.08f, -0.1f);
+    }
+
+    void UpdateGhostWarning(Vector2 position, BuildingInfo info)
+    {
+        if (ghostWarning == null || info == null)
+            return;
+
+        var sb = new System.Text.StringBuilder();
+        if (world != null && info.cost > 0 && world.Gold < info.cost)
+            sb.Append("Need ").Append(info.cost).Append(" gold");
+        if (!InRequiredResourceRange(position, info))
+        {
+            if (sb.Length > 0)
+                sb.Append('\n');
+            sb.Append("Need ").Append(info.requireResource);
+        }
+        if (Building.IsTopBlockedAt(position, info))
+        {
+            if (sb.Length > 0)
+                sb.Append('\n');
+            sb.Append("Must be on top to work");
+        }
+
+        List<ResourceAmount> needs = info.ConsumeList;
+        if (needs != null)
+        {
+            for (int i = 0; i < needs.Count; i++)
+            {
+                if (Building.HasProviderCovering(position, needs[i].id))
+                    continue;
+                if (sb.Length > 0)
+                    sb.Append('\n');
+                sb.Append("Need ").Append(needs[i].id);
+                if (needs[i].amount > 1)
+                    sb.Append(':').Append(needs[i].amount);
+            }
+        }
+
+        bool show = sb.Length > 0;
+        ghostWarning.text = show ? sb.ToString() : "";
+        ghostWarning.gameObject.SetActive(show);
+        if (ghostWarningIcon != null)
+            ghostWarningIcon.gameObject.SetActive(show);
+        AlignGhostWarningIcon();
+    }
+
+    void AlignGhostWarningIcon()
+    {
+        if (ghostWarningIcon == null || ghostWarning == null || !ghostWarningIcon.gameObject.activeSelf)
+            return;
+
+        ghostWarningIcon.transform.rotation = Quaternion.identity;
+        ghostWarning.transform.rotation = Quaternion.identity;
+        var textRenderer = ghostWarning.GetComponent<Renderer>();
+        if (textRenderer == null)
+            return;
+
+        Bounds textBounds = textRenderer.bounds;
+        float iconW = ghostWarningIcon.bounds.size.x;
+        if (iconW < 0.01f)
+            iconW = 0.4f;
+        ghostWarningIcon.transform.position = new Vector3(
+            textBounds.min.x - iconW * 0.5f - 0.06f,
+            textBounds.center.y,
+            textBounds.center.z);
     }
 
     void SetCircle(float radius)
@@ -169,6 +463,199 @@ public class BuildingPlacer : MonoBehaviour
             float a = i / (float)segments * Mathf.PI * 2f;
             radiusCircle.SetPosition(i, new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f));
         }
+    }
+
+    void UpdateLinkPreview(Vector3 origin, BuildingInfo info, Building source)
+    {
+        ClearHighlights();
+        usedArrows = 0;
+
+        bool hovering = source != null;
+        if (hoverRadius != null)
+            hoverRadius.enabled = false;
+
+        RefreshRadiusVisibility(hovering ? null : info, hovering ? source : hovered);
+
+        if (info == null)
+        {
+            HideUnusedArrows();
+            return;
+        }
+
+        bool canGive = info.radius > 0f && info.HasProvideDisplay;
+        bool canTake = info.HasConsumeDisplay;
+        bool canTakeNode = !string.IsNullOrEmpty(info.requireResource);
+        if (!canGive && !canTake && !canTakeNode)
+        {
+            HideUnusedArrows();
+            return;
+        }
+
+        for (int i = 0; i < Building.All.Count; i++)
+        {
+            Building other = Building.All[i];
+            if (other == null || other == source || other.Info == null)
+                continue;
+
+            float dist = Vector2.Distance(origin, other.transform.position);
+            bool give = canGive && dist <= info.radius &&
+                BuildingInfo.ResourceListsOverlap(info.ProvideList, other.Info.ConsumeList);
+            bool take = canTake && other.Info.radius > 0f && dist <= other.Info.radius &&
+                BuildingInfo.ResourceListsOverlap(other.Info.ProvideList, info.ConsumeList);
+            bool takeNode = canTakeNode && other.IsResource && other.Info.identifier == info.requireResource &&
+                other.Info.radius > 0f && dist <= other.Info.radius;
+            if (!give && !take && !takeNode)
+                continue;
+
+            other.SetLinkPulse(true);
+            highlighted.Add(other);
+
+            if (give)
+                AddArrow(origin, other.transform.position, GiveArrowColor, 0.08f);
+            if (take || takeNode)
+                AddArrow(other.transform.position, origin, TakeArrowColor, -0.08f);
+        }
+
+        HideUnusedArrows();
+    }
+
+    void SetHoverRadius(Vector3 center, float radius)
+    {
+        if (hoverRadius == null)
+            return;
+        if (radius <= 0f)
+        {
+            hoverRadius.enabled = false;
+            return;
+        }
+
+        hoverRadius.enabled = true;
+        const int segments = 48;
+        hoverRadius.positionCount = segments;
+        for (int i = 0; i < segments; i++)
+        {
+            float a = i / (float)segments * Mathf.PI * 2f;
+            hoverRadius.SetPosition(i, center + new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f));
+        }
+    }
+
+    void AddArrow(Vector3 from, Vector3 to, Color color, float side)
+    {
+        Vector3 delta = to - from;
+        float mag = delta.magnitude;
+        if (mag < 0.15f)
+            return;
+
+        Vector3 dir = delta / mag;
+        Vector3 n = new Vector3(-dir.y, dir.x, 0f);
+        from += n * side;
+        to += n * side;
+        delta = to - from;
+        mag = delta.magnitude;
+        dir = delta / mag;
+
+        float inset = Mathf.Min(0.45f, mag * 0.22f);
+        Vector3 start = from + dir * inset;
+        Vector3 end = to - dir * inset;
+        float head = Mathf.Min(0.28f, mag * 0.18f);
+        Vector3 left = end - dir * head + n * (head * 0.55f);
+        Vector3 right = end - dir * head - n * (head * 0.55f);
+
+        LineRenderer lr = NextArrow();
+        lr.enabled = true;
+        lr.startColor = color;
+        lr.endColor = color;
+        lr.positionCount = 6;
+        lr.SetPosition(0, start);
+        lr.SetPosition(1, end);
+        lr.SetPosition(2, left);
+        lr.SetPosition(3, end);
+        lr.SetPosition(4, right);
+        lr.SetPosition(5, end);
+    }
+
+    LineRenderer NextArrow()
+    {
+        if (usedArrows < arrows.Count)
+            return arrows[usedArrows++];
+
+        var go = new GameObject("LinkArrow");
+        go.transform.SetParent(transform);
+        var lr = go.AddComponent<LineRenderer>();
+        lr.useWorldSpace = true;
+        lr.loop = false;
+        lr.startWidth = 0.055f;
+        lr.endWidth = 0.055f;
+        lr.numCapVertices = 2;
+        lr.numCornerVertices = 2;
+        lr.material = LineMaterial();
+        lr.sortingOrder = 18;
+        arrows.Add(lr);
+        usedArrows++;
+        return lr;
+    }
+
+    void HideUnusedArrows()
+    {
+        for (int i = usedArrows; i < arrows.Count; i++)
+        {
+            if (arrows[i] != null)
+                arrows[i].enabled = false;
+        }
+    }
+
+    void ClearHighlights()
+    {
+        for (int i = 0; i < highlighted.Count; i++)
+        {
+            if (highlighted[i] != null)
+                highlighted[i].SetLinkPulse(false);
+        }
+        highlighted.Clear();
+    }
+
+    void ClearLinkPreview()
+    {
+        ClearHighlights();
+        usedArrows = 0;
+        HideUnusedArrows();
+        if (hoverRadius != null)
+            hoverRadius.enabled = false;
+        RefreshRadiusVisibility(null, null);
+    }
+
+    void RefreshRadiusVisibility(BuildingInfo placing, Building hoveredBuilding)
+    {
+        for (int i = 0; i < Building.All.Count; i++)
+        {
+            Building building = Building.All[i];
+            if (building == null || building.Info == null)
+                continue;
+
+            bool show = hoveredBuilding == building && building.Info.radius > 0f;
+            if (!show && placing != null)
+                show = ProvidesForPlacement(building, placing);
+            building.SetRadiusVisible(show);
+        }
+    }
+
+    static bool ProvidesForPlacement(Building building, BuildingInfo placing)
+    {
+        if (building == null || building.Info == null || placing == null || building.Info.radius <= 0f)
+            return false;
+
+        if (building.IsResource && !string.IsNullOrEmpty(placing.requireResource) &&
+            building.Info.identifier == placing.requireResource)
+            return true;
+
+        return BuildingInfo.ResourceListsOverlap(building.Info.ProvideList, placing.ConsumeList);
+    }
+
+    Material LineMaterial()
+    {
+        if (lineMaterial == null)
+            lineMaterial = new Material(Shader.Find("Sprites/Default"));
+        return lineMaterial;
     }
 
     Building FindBuildingAt(Vector2 worldPos)
@@ -199,14 +686,30 @@ public class BuildingPlacer : MonoBehaviour
         return null;
     }
 
+    static bool CanDemolish(Building building)
+    {
+        return building != null && building.Info != null && !building.IsResource && !building.IsCore;
+    }
+
+    static int DemolishRefund(Building building)
+    {
+        if (building == null || building.Info == null)
+            return 0;
+        return building.Info.cost / 2;
+    }
+
     void Demolish(Building building)
     {
-        if (building == null || building.Info == null || building.IsResource)
+        if (!CanDemolish(building))
             return;
 
-        world.AddGold(building.Info.cost);
+        world.AddGold(DemolishRefund(building));
+        if (demolishShake == building)
+            StopDemolishShake();
         Destroy(building.gameObject);
         hovered = null;
+        if (TutorialManager.Instance != null)
+            TutorialManager.Instance.NotifyBuildingDestroyed();
     }
 
     bool CanPlace(Vector2 position, BuildingInfo info)
@@ -217,6 +720,12 @@ public class BuildingPlacer : MonoBehaviour
             return false;
         if (!info.IsCore && !Building.CoreExists())
             return false;
+        if (!info.IsCore)
+        {
+            var list = BuildableList();
+            if (list == null || !list.Contains(info))
+                return false;
+        }
         if (world.Gold < info.cost)
             return false;
         if (OverlapsBuilding(position, info))
@@ -267,7 +776,10 @@ public class BuildingPlacer : MonoBehaviour
             return;
 
         Spawn(position, info);
-        RefreshGhost();
+        if (!info.IsCore)
+            ResetPlacement();
+        else
+            RefreshGhost();
     }
 
     public void SpawnStartingResources()
@@ -358,12 +870,13 @@ public class BuildingPlacer : MonoBehaviour
         go.transform.localRotation = Quaternion.identity;
 
         var visual = new GameObject("Visual");
-        visual.transform.SetParent(go.transform);
+        visual.transform.SetParent(go.transform, false);
         visual.transform.localPosition = Vector3.zero;
+        visual.transform.localRotation = Quaternion.identity;
         visual.transform.localScale = new Vector3(scale.x, scale.y, 1f);
         var renderer = visual.AddComponent<SpriteRenderer>();
         renderer.sprite = sprite;
-        renderer.sortingOrder = 5;
+        renderer.sortingOrder = 1;
 
         var building = go.AddComponent<Building>();
         building.Setup(info);
@@ -441,8 +954,126 @@ public class BuildingPlacer : MonoBehaviour
         }
     }
 
+    List<BuildingInfo> BuildableList()
+    {
+        if (world != null)
+            return world.CurrentPlayerBuildings();
+        return CSVLoader.Instance.playerBuildingList;
+    }
+
+    static bool DestroyVisible()
+    {
+        return TutorialManager.Instance == null || TutorialManager.Instance.DestroyButtonVisible;
+    }
+
+    static Vector2 GuiMouse()
+    {
+        return new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
+    }
+
+    bool OverBuildBar()
+    {
+        return barRect.width > 0f && barRect.Contains(GuiMouse());
+    }
+
+    int HitBuildButton()
+    {
+        if (buttonRects == null)
+            return -1;
+
+        Vector2 mouse = GuiMouse();
+        for (int i = 0; i < buttonRects.Length; i++)
+        {
+            if (buttonRects[i].Contains(mouse))
+                return i;
+        }
+
+        return -1;
+    }
+
     void OnGUI()
     {
+        bool blocked = TutorialManager.Instance != null && TutorialManager.Instance.BlocksInput;
+        DrawBuildBar();
+
+        string panelText = ButtonHoverPanelText();
+        if (!blocked)
+        {
+            DrawDemolishHoverPrompt();
+            if (string.IsNullOrEmpty(panelText))
+            {
+                if (hovered != null && hovered.Info != null && (!dragging || demolishMode))
+                    panelText = hovered.HoverInfo();
+                else if (ghost != null && ghost.gameObject.activeSelf)
+                {
+                    BuildingInfo dragInfo = CurrentInfo();
+                    if (dragInfo != null)
+                        panelText = Building.FormatPanelInfo(dragInfo, null);
+                }
+            }
+        }
+
+        if (string.IsNullOrEmpty(panelText))
+            return;
+
+        float panelW = 460f;
+        float panelH = 280f;
+        float panelY = barRect.height > 0f
+            ? Mathf.Max(8f, barRect.y - panelH - 8f)
+            : Screen.height - panelH;
+        var panel = new Rect(Screen.width - panelW, panelY, panelW, panelH);
+        GUI.Box(panel, "");
+
+        var panelStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 32,
+            wordWrap = true
+        };
+        panelStyle.normal.textColor = Color.black;
+        panelStyle.hover.textColor = Color.black;
+        GUI.Label(new Rect(panel.x + 12f, panel.y + 10f, panel.width - 20f, panel.height - 16f),
+            panelText, panelStyle);
+    }
+
+    string ButtonHoverPanelText()
+    {
+        int index = HitBuildButton();
+        if (index < 0)
+            return null;
+
+        var list = BuildableList();
+        if (list == null || index < 0 || index >= list.Count)
+            return null;
+        return Building.FormatPanelInfo(list[index], null);
+    }
+
+    void DrawDemolishHoverPrompt()
+    {
+        if (!demolishMode || hovered == null || !CanDemolish(hovered) || Camera.main == null)
+            return;
+
+        int refund = DemolishRefund(hovered);
+        var style = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 44,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleCenter,
+            wordWrap = true
+        };
+        style.normal.textColor = new Color(0.85f, 0.1f, 0.1f);
+        style.hover.textColor = style.normal.textColor;
+
+        Vector3 sp = Camera.main.WorldToScreenPoint(hovered.transform.position);
+        float x = sp.x;
+        float y = Screen.height - sp.y;
+        GUI.Label(new Rect(x - 420f, y - 110f, 840f, 90f),
+            "Left click to destroy (get " + refund + " coin)", style);
+    }
+
+    void DrawBuildBar()
+    {
+        float btnH = 196f;
+        float barY = Screen.height - 212f;
         var goldStyle = new GUIStyle(GUI.skin.label)
         {
             fontSize = 36,
@@ -450,55 +1081,229 @@ public class BuildingPlacer : MonoBehaviour
         };
         goldStyle.normal.textColor = Color.black;
         goldStyle.hover.textColor = Color.black;
-        GUI.Label(new Rect(16f, Screen.height - 86f, 240f, 50f),
-            "Gold " + Mathf.FloorToInt(world.Gold), goldStyle);
+        DrawGoldAmount(new Rect(16f, barY + 24f, 280f, 56f), Mathf.FloorToInt(world.Gold), goldStyle, 40f);
 
-        var list = CSVLoader.Instance.playerBuildingList;
-        if (!Building.CoreExists() || list.Count > 0)
+        var list = BuildableList();
+        if (!Building.CoreExists())
         {
+            barRect = new Rect(0f, Screen.height - 220f, Screen.width, 220f);
+            buttonRects = null;
             var hotStyle = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 18,
-                alignment = TextAnchor.MiddleCenter
+                fontSize = 36,
+                alignment = TextAnchor.MiddleCenter,
+                wordWrap = true
             };
             hotStyle.normal.textColor = Color.black;
             hotStyle.hover.textColor = Color.black;
+            GUI.Label(new Rect(0f, barY + 20f, Screen.width, 72f), "Place Core", hotStyle);
+            return;
+        }
 
-            string hotkeys;
-            if (!Building.CoreExists())
+        int buildCount = list != null ? list.Count : 0;
+        bool showDestroy = DestroyVisible();
+        int n = buildCount + (showDestroy ? 1 : 0);
+        if (n <= 0)
+        {
+            barRect = new Rect(0f, barY - 8f, Screen.width, btnH + 16f);
+            buttonRects = null;
+            return;
+        }
+        float gap = 8f;
+        float left = 220f;
+        float right = 480f;
+        float areaW = Mathf.Max(200f, Screen.width - left - right);
+        float btnW = Mathf.Clamp((areaW - gap * (n - 1)) / n, 160f, 280f);
+        float total = n * btnW + (n - 1) * gap;
+        float startX = left + Mathf.Max(0f, areaW - total) * 0.5f;
+
+        barRect = new Rect(0f, barY - 8f, Screen.width, btnH + 16f);
+        if (buttonRects == null || buttonRects.Length != n)
+            buttonRects = new Rect[n];
+
+        var btnStyle = WhiteButtonStyle();
+        var captionStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 28,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleCenter,
+            wordWrap = false
+        };
+        captionStyle.normal.textColor = Color.black;
+        captionStyle.hover.textColor = Color.black;
+        var hotkeyStyle = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 22,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.UpperLeft
+        };
+        hotkeyStyle.normal.textColor = Color.black;
+        hotkeyStyle.hover.textColor = Color.black;
+
+        for (int i = 0; i < n; i++)
+        {
+            var r = new Rect(startX + i * (btnW + gap), barY, btnW, btnH);
+            buttonRects[i] = r;
+
+            bool isDemolish = showDestroy && i == buildCount;
+            Color oldBg = GUI.backgroundColor;
+            if (isDemolish)
+                GUI.backgroundColor = demolishMode
+                    ? new Color(1f, 0.45f, 0.35f)
+                    : new Color(1f, 0.82f, 0.82f);
+            else if (selected == i)
+                GUI.backgroundColor = new Color(1f, 0.92f, 0.45f);
+            else if (list[i].cost > world.Gold)
+                GUI.backgroundColor = new Color(0.82f, 0.82f, 0.82f);
+            else
+                GUI.backgroundColor = Color.white;
+
+            GUI.Button(r, GUIContent.none, btnStyle);
+            GUI.backgroundColor = oldBg;
+
+            GUI.Label(new Rect(r.x + 6f, r.y + 4f, 36f, 24f),
+                isDemolish ? "0" : (i + 1).ToString(), hotkeyStyle);
+
+            float imgPad = 8f;
+            float imgH = 104f;
+            var imgRect = new Rect(r.x + imgPad, r.y + 26f, r.width - imgPad * 2f, imgH);
+            var textRect = new Rect(r.x + 4f, r.y + 26f + imgH, r.width - 8f, r.height - imgH - 30f);
+
+            if (isDemolish)
             {
-                hotkeys = "Place Core";
+                DrawSprite(imgRect, DemolishIcon());
+                captionStyle.alignment = TextAnchor.MiddleCenter;
+                GUI.Label(textRect, "Destroy", captionStyle);
             }
             else
             {
-                hotkeys = "";
-                int count = list.Count < 9 ? list.Count : 9;
-                for (int i = 0; i < count; i++)
-                {
-                    if (i > 0)
-                        hotkeys += "    ";
-                    hotkeys += (i + 1) + " " + list[i].name;
-                }
+                DrawBuildingIcon(imgRect, list[i]);
+                DrawNameAndCost(textRect, list[i].name, list[i].cost, captionStyle);
             }
+        }
+    }
 
-            GUI.Label(new Rect(0f, Screen.height - 34f, Screen.width, 28f), hotkeys, hotStyle);
+    static GUIStyle WhiteButtonStyle()
+    {
+        var style = new GUIStyle(GUI.skin.button)
+        {
+            fontSize = 15,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.MiddleCenter,
+            wordWrap = true
+        };
+        style.normal.background = Texture2D.whiteTexture;
+        style.hover.background = Texture2D.whiteTexture;
+        style.active.background = Texture2D.whiteTexture;
+        style.focused.background = Texture2D.whiteTexture;
+        style.border = new RectOffset(1, 1, 1, 1);
+        return style;
+    }
+
+    void DrawNameAndCost(Rect rect, string name, int cost, GUIStyle nameStyle)
+    {
+        nameStyle.alignment = TextAnchor.MiddleCenter;
+        float nameH = 34f;
+        GUI.Label(new Rect(rect.x, rect.y, rect.width, nameH), name, nameStyle);
+
+        var costStyle = new GUIStyle(nameStyle)
+        {
+            fontSize = 20,
+            alignment = TextAnchor.MiddleLeft
+        };
+        float goldSize = 22f;
+        string costText = cost.ToString();
+        float costW = costStyle.CalcSize(new GUIContent(costText)).x;
+        float totalW = goldSize + 4f + costW;
+        float x = rect.x + Mathf.Max(0f, (rect.width - totalW) * 0.5f);
+        float y = rect.y + nameH;
+        float rowH = Mathf.Max(goldSize, rect.height - nameH);
+        DrawGoldIcon(new Rect(x, y + (rowH - goldSize) * 0.5f, goldSize, goldSize));
+        GUI.Label(new Rect(x + goldSize + 4f, y, costW + 8f, rowH), costText, costStyle);
+    }
+
+    void DrawGoldAmount(Rect rect, int amount, GUIStyle style, float iconSize)
+    {
+        string text = amount.ToString();
+        float textW = style.CalcSize(new GUIContent(text)).x;
+        DrawGoldIcon(new Rect(rect.x, rect.y + (rect.height - iconSize) * 0.5f, iconSize, iconSize));
+        GUI.Label(new Rect(rect.x + iconSize + 6f, rect.y, textW + 20f, rect.height), text, style);
+    }
+
+    Sprite GoldIcon()
+    {
+        if (goldIcon == null)
+            goldIcon = Resources.Load<Sprite>("gold");
+        return goldIcon;
+    }
+
+    void DrawGoldIcon(Rect rect)
+    {
+        Sprite sprite = GoldIcon();
+        if (sprite != null)
+        {
+            DrawSprite(rect, sprite);
+            return;
         }
 
-        if (hovered == null || hovered.Info == null)
+        if (goldTexture == null)
+            goldTexture = Resources.Load<Texture2D>("gold");
+        if (goldTexture != null)
+            GUI.DrawTexture(rect, goldTexture, ScaleMode.ScaleToFit, true);
+    }
+
+    Sprite DemolishIcon()
+    {
+        if (demolishIcon == null)
+            demolishIcon = Resources.Load<Sprite>("warning");
+        return demolishIcon;
+    }
+
+    void DrawBuildingIcon(Rect rect, BuildingInfo info)
+    {
+        Sprite sprite = BuildingArt.LoadSprite(info);
+        if (sprite != null)
+        {
+            DrawSprite(rect, sprite);
+            return;
+        }
+
+        Color old = GUI.color;
+        GUI.color = ColorFor(info != null ? info.type : "");
+        GUI.DrawTexture(rect, Texture2D.whiteTexture, ScaleMode.ScaleToFit, false);
+        GUI.color = old;
+    }
+
+    static void DrawSprite(Rect position, Sprite sprite)
+    {
+        if (sprite == null || sprite.texture == null || position.width <= 1f || position.height <= 1f)
             return;
 
-        float panelW = 230f;
-        float panelH = 148f;
-        var panel = new Rect(Screen.width - panelW - 16f, Screen.height - panelH - 48f, panelW, panelH);
-        GUI.Box(panel, "");
+        Texture2D tex = sprite.texture;
+        Rect sr = sprite.rect;
+        if (sr.width < 1f || sr.height < 1f)
+            return;
 
-        var panelStyle = new GUIStyle(GUI.skin.label)
+        float aspect = sr.width / sr.height;
+        float w = position.width;
+        float h = position.height;
+        if (w / h > aspect)
         {
-            fontSize = 16
-        };
-        panelStyle.normal.textColor = Color.black;
-        panelStyle.hover.textColor = Color.black;
-        GUI.Label(new Rect(panel.x + 12f, panel.y + 10f, panel.width - 20f, panel.height - 16f),
-            hovered.HoverInfo(), panelStyle);
+            w = h * aspect;
+            position.x += (position.width - w) * 0.5f;
+            position.width = w;
+        }
+        else
+        {
+            h = w / aspect;
+            position.y += (position.height - h) * 0.5f;
+            position.height = h;
+        }
+
+        var uv = new Rect(sr.x / tex.width, sr.y / tex.height, sr.width / tex.width, sr.height / tex.height);
+        Color old = GUI.color;
+        GUI.color = Color.white;
+        GUI.DrawTextureWithTexCoords(position, tex, uv);
+        GUI.color = old;
     }
 }

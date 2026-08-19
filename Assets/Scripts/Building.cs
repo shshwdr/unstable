@@ -14,11 +14,30 @@ public class Building : MonoBehaviour
     readonly StringBuilder labelBuilder = new StringBuilder();
 
     TextMesh infoText;
+    TextMesh warningText;
+    SpriteRenderer warningIcon;
+    SpriteRenderer visualRenderer;
     Transform radiusVisual;
     SpriteRenderer cdFill;
+    Material cdFillMaterial;
+    Vector3 visualBaseScale = Vector3.one;
     float cdRemain;
     bool cycling;
+    bool linkPulse;
+    bool deleteShake;
+    float deleteShakePhase;
     BalanceWorld world;
+
+    public static bool ShowResourceStock = true;
+
+    static readonly Color StarvedTint = new Color(0.2f, 0.2f, 0.22f, 1f);
+    static readonly Color WarningRed = new Color(1f, 0.23f, 0.23f, 1f);
+    static Sprite warningSprite;
+
+    public static void ToggleResourceStock()
+    {
+        ShowResourceStock = !ShowResourceStock;
+    }
 
     public bool IsCore
     {
@@ -102,17 +121,27 @@ public class Building : MonoBehaviour
         PhysicsBounds = BuildingArt.PhysicsLocalBounds(info);
 
         float top = PhysicsBounds.max.y;
-        infoText = CreateLabel("Info", info.name, Color.white, 0.12f, 12);
-        infoText.anchor = TextAnchor.UpperCenter;
-        infoText.richText = true;
+        visualRenderer = FindVisualRenderer();
+        if (visualRenderer != null)
+            visualBaseScale = visualRenderer.transform.localScale;
+        if (info.HasStockDisplay)
+        {
+            infoText = CreateLabel("Info", "", Color.white, 0f, 51);
+            infoText.anchor = TextAnchor.MiddleCenter;
+            infoText.richText = true;
+        }
+
+        float hpBarY = top + 0.28f;
+        float warningY = info.IsResource ? top + 0.08f : hpBarY + 0.22f;
+        CreateWarningLabel(warningY);
 
         if (!info.IsResource)
         {
             Health = gameObject.AddComponent<Health>();
-            Health.Init(info.hp, new Vector3(0f, top + 0.28f, 0f));
+            Health.Init(info.hp, new Vector3(0f, hpBarY, 0f));
         }
 
-        if (info.IsResource && info.radius > 0f)
+        if (info.radius > 0f)
             CreateRadiusCircle(info.radius);
 
         if (!info.IsResource && info.cd > 0f)
@@ -152,9 +181,18 @@ public class Building : MonoBehaviour
             world.Fail();
     }
 
+    void OnDestroy()
+    {
+        if (cdFillMaterial != null)
+        {
+            Destroy(cdFillMaterial);
+            cdFillMaterial = null;
+        }
+    }
+
     void Update()
     {
-        if (world != null && world.HasEnded)
+        if (world != null && world.IsGameOver)
             return;
         if (Info == null)
             return;
@@ -173,6 +211,26 @@ public class Building : MonoBehaviour
         return !IsBlockedByTop() && InRequiredResourceRange();
     }
 
+    public bool HasNoProblems()
+    {
+        if (Info == null)
+            return false;
+        if (!HasWorkConditions())
+            return false;
+
+        List<ResourceAmount> needs = Info.ConsumeList;
+        if (needs == null)
+            return true;
+
+        for (int i = 0; i < needs.Count; i++)
+        {
+            if (!HasProviderCovering(transform.position, needs[i].id))
+                return false;
+        }
+
+        return true;
+    }
+
     public bool InRequiredResourceRange()
     {
         if (Info == null || string.IsNullOrEmpty(Info.requireResource))
@@ -188,6 +246,57 @@ public class Building : MonoBehaviour
             if (resource.Info.radius <= 0f)
                 continue;
             if (Vector2.Distance(transform.position, resource.transform.position) <= resource.Info.radius)
+                return true;
+        }
+
+        return false;
+    }
+
+    public static bool HasProviderCovering(Vector2 position, string resource)
+    {
+        if (string.IsNullOrEmpty(resource))
+            return true;
+
+        for (int i = 0; i < All.Count; i++)
+        {
+            Building other = All[i];
+            if (other == null || other.Info == null || other.IsResource)
+                continue;
+            if (other.Info.radius <= 0f)
+                continue;
+            if (!other.Info.ProvidesResource(resource))
+                continue;
+            if (Vector2.Distance(position, other.transform.position) <= other.Info.radius)
+                return true;
+        }
+
+        return false;
+    }
+
+    public static bool IsTopBlockedAt(Vector2 position, BuildingInfo info)
+    {
+        if (info == null || !info.RequiresTop)
+            return false;
+
+        Bounds local = BuildingArt.PhysicsLocalBounds(info);
+        Vector2 size = local.size;
+        if (size.x < 0.01f || size.y < 0.01f)
+            size = info.Size;
+        Vector2 center = position + new Vector2(local.center.x, local.max.y + 0.1f);
+        Vector2 box = new Vector2(Mathf.Max(0.2f, size.x * 0.75f), 0.16f);
+        Collider2D[] hits = Physics2D.OverlapBoxAll(center, box, 0f);
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider2D hit = hits[i];
+            if (hit == null)
+                continue;
+
+            Building building = hit.GetComponent<Building>();
+            if (building != null)
+                return true;
+
+            Enemy enemy = hit.GetComponent<Enemy>();
+            if (enemy != null && enemy.IsMelee)
                 return true;
         }
 
@@ -359,6 +468,25 @@ public class Building : MonoBehaviour
         return best;
     }
 
+    public string FormatStoredAmounts()
+    {
+        if (Info == null || Info.ProvideList == null)
+            return "";
+
+        labelBuilder.Length = 0;
+        for (int i = 0; i < Info.ProvideList.Count; i++)
+        {
+            string id = Info.ProvideList[i].id;
+            if (string.IsNullOrEmpty(id) || id == "coin")
+                continue;
+            if (labelBuilder.Length > 0)
+                labelBuilder.Append('\n');
+            labelBuilder.Append(id).Append(':').Append(GetStock(id));
+        }
+
+        return labelBuilder.ToString();
+    }
+
     public string FormatStock()
     {
         if (stock.Count == 0)
@@ -379,27 +507,53 @@ public class Building : MonoBehaviour
 
     public string HoverInfo()
     {
-        labelBuilder.Length = 0;
-        labelBuilder.Append(Info != null ? Info.name : "");
-        if (IsResource)
+        return FormatPanelInfo(Info, this);
+    }
+
+    public static string FormatPanelInfo(BuildingInfo info, Building runtime)
+    {
+        var sb = new StringBuilder();
+        sb.Append(info != null ? info.name : "");
+        if (info == null)
+            return sb.ToString();
+
+        if (!string.IsNullOrEmpty(info.desc))
+            sb.Append('\n').Append(TrimCsvQuotes(info.desc));
+
+        if (info.IsResource)
         {
-            labelBuilder.Append("\nResource node");
-            if (Info != null && Info.radius > 0f)
-                labelBuilder.Append("\nRadius ").Append(Info.radius.ToString("0.##"));
-            return labelBuilder.ToString();
+            sb.Append("\nResource node");
+            if (info.radius > 0f)
+                sb.Append("\nRadius ").Append(info.radius.ToString("0.##"));
+            return sb.ToString();
         }
 
-        labelBuilder.Append("\nStock ").Append(FormatStock());
-        labelBuilder.Append("\nConsume ").Append(FormatAmounts(Info != null ? Info.ConsumeList : null));
-        labelBuilder.Append("\nProvide ").Append(FormatAmounts(Info != null ? Info.ProvideList : null));
-        labelBuilder.Append("\nCD ").Append(Info != null && Info.cd > 0f ? Info.cd.ToString("0.##") : "-");
-        if (Info != null && Info.RequiresTop)
-            labelBuilder.Append(IsBlockedByTop() ? "\nBlocked: must be on top" : "\nSpecial: must be on top");
-        if (Info != null && !string.IsNullOrEmpty(Info.requireResource))
-            labelBuilder.Append(InRequiredResourceRange()
-                ? "\nNeeds " + Info.requireResource
-                : "\nBlocked: needs " + Info.requireResource);
-        return labelBuilder.ToString();
+        if (runtime != null && info.HasStockDisplay)
+            sb.Append("\nStock ").Append(runtime.FormatStock());
+        if (info.HasConsumeDisplay)
+            sb.Append("\nConsume ").Append(FormatAmounts(info.ConsumeList));
+        if (info.HasProvideDisplay)
+            sb.Append("\nProvide ").Append(FormatAmounts(info.ProvideList));
+        if (info.cd > 0f)
+            sb.Append("\nCD ").Append(info.cd.ToString("0.##"));
+        if (info.RequiresTop)
+            sb.Append(runtime != null && runtime.IsBlockedByTop()
+                ? "\nBlocked: must be on top"
+                : "\nSpecial: must be on top");
+        if (!string.IsNullOrEmpty(info.requireResource))
+            sb.Append(runtime != null && !runtime.InRequiredResourceRange()
+                ? "\nBlocked: needs " + info.requireResource
+                : "\nNeeds " + info.requireResource);
+        return sb.ToString();
+    }
+
+    static string TrimCsvQuotes(string text)
+    {
+        if (string.IsNullOrEmpty(text) || text.Length < 2)
+            return text;
+        if (text[0] == '"' && text[text.Length - 1] == '"')
+            return text.Substring(1, text.Length - 2).Replace("\"\"", "\"");
+        return text;
     }
 
     static string FormatAmounts(List<ResourceAmount> list)
@@ -418,21 +572,53 @@ public class Building : MonoBehaviour
         return sb.ToString();
     }
 
+    public void SetLinkPulse(bool pulse)
+    {
+        linkPulse = pulse;
+        if (!pulse && visualRenderer != null)
+            visualRenderer.transform.localScale = visualBaseScale;
+    }
+
+    public void SetDeleteShake(bool shake)
+    {
+        deleteShake = shake;
+        if (shake)
+            deleteShakePhase = Random.Range(0f, Mathf.PI * 2f);
+        else if (visualRenderer != null)
+        {
+            visualRenderer.transform.localRotation = Quaternion.identity;
+            visualRenderer.transform.localPosition = Vector3.zero;
+            if (!linkPulse)
+                visualRenderer.transform.localScale = visualBaseScale;
+        }
+    }
+
     void RefreshLabels()
     {
-        if (infoText == null || Info == null)
+        if (Info == null)
             return;
 
+        if (infoText != null)
+        {
+            bool show = ShowResourceStock && Info.HasStockDisplay;
+            infoText.gameObject.SetActive(show);
+            if (show)
+                infoText.text = FormatStoredAmounts();
+        }
+
+        SetStarvedVisual(RefreshShortage());
+    }
+
+    bool RefreshShortage()
+    {
+        if (warningText == null || Info == null)
+            return false;
+
         labelBuilder.Length = 0;
-        labelBuilder.Append(Info.name);
-
         if (IsBlockedByTop())
-            labelBuilder.Append("\n<color=#ff3b3b>Must be on top to work</color>");
+            labelBuilder.Append("Must be on top to work");
         else if (!InRequiredResourceRange())
-            labelBuilder.Append("\n<color=#ff3b3b>Need ").Append(Info.requireResource).Append("</color>");
-
-        if (stock.Count > 0)
-            labelBuilder.Append('\n').Append(FormatStock());
+            labelBuilder.Append("Need ").Append(Info.requireResource);
 
         List<ResourceAmount> needs = Info.ConsumeList;
         if (needs != null && !cycling)
@@ -441,58 +627,130 @@ public class Building : MonoBehaviour
             {
                 if (FindRichestCovering(needs[i].id, needs[i].amount) != null)
                     continue;
-                labelBuilder.Append("\n<color=#ff3b3b>");
+                if (labelBuilder.Length > 0)
+                    labelBuilder.Append('\n');
                 labelBuilder.Append(needs[i].id);
                 if (needs[i].amount > 1)
                     labelBuilder.Append(':').Append(needs[i].amount);
-                labelBuilder.Append("</color>");
             }
         }
 
-        infoText.text = labelBuilder.ToString();
+        bool starved = labelBuilder.Length > 0;
+        warningText.text = starved ? labelBuilder.ToString() : "";
+        warningText.gameObject.SetActive(starved);
+        if (warningIcon != null)
+            warningIcon.gameObject.SetActive(starved);
+        return starved;
+    }
+
+    void SetStarvedVisual(bool starved)
+    {
+        if (visualRenderer != null)
+            visualRenderer.color = starved ? StarvedTint : Color.white;
+        if (cdFill != null)
+            cdFill.color = starved
+                ? new Color(0.35f, 0.35f, 0.38f, 0.35f)
+                : new Color(1f, 1f, 1f, 0.35f);
     }
 
     void CreateCdFill()
     {
+        Transform visual = visualRenderer != null ? visualRenderer.transform : transform;
+        Sprite sprite = visualRenderer != null ? visualRenderer.sprite : null;
+        if (sprite == null)
+            return;
+
+        Shader shader = Resources.Load<Shader>("shaders/SpriteSolidFill");
+        if (shader == null)
+            shader = Shader.Find("Unstable/SpriteSolidFill");
+        if (shader == null)
+            return;
+
+        cdFillMaterial = new Material(shader);
+        cdFillMaterial.SetTexture("_MainTex", sprite.texture);
+        cdFillMaterial.SetFloat("_MinY", sprite.bounds.min.y);
+        cdFillMaterial.SetFloat("_MaxY", sprite.bounds.max.y);
+        cdFillMaterial.SetFloat("_FillAmount", 0f);
+
         var go = new GameObject("CdFill");
-        go.transform.SetParent(transform);
-        go.transform.localRotation = Quaternion.identity;
+        go.transform.SetParent(visual, false);
+        go.transform.localPosition = Vector3.zero;
+        go.transform.localScale = Vector3.one;
         cdFill = go.AddComponent<SpriteRenderer>();
-        cdFill.sprite = ShapeUtil.Square(Color.white);
+        cdFill.sprite = sprite;
+        cdFill.sharedMaterial = cdFillMaterial;
         cdFill.color = new Color(1f, 1f, 1f, 0.35f);
         cdFill.sortingOrder = 6;
+        cdFill.enabled = false;
     }
 
     void RefreshCdFill()
     {
-        if (cdFill == null || Info == null || Info.cd <= 0f)
+        if (cdFill == null || cdFillMaterial == null || Info == null || Info.cd <= 0f)
             return;
 
         float progress = cycling ? 1f - Mathf.Clamp01(cdRemain / Info.cd) : 0f;
-        Vector2 size = PhysicsBounds.size;
-        if (size.x < 0.01f || size.y < 0.01f)
-            size = Info.Size;
-        float h = size.y * progress;
-        if (h < 0.001f)
+        if (progress < 0.001f)
         {
             cdFill.enabled = false;
             return;
         }
 
         cdFill.enabled = true;
-        cdFill.transform.localScale = new Vector3(size.x, h, 1f);
-        cdFill.transform.localPosition = new Vector3(
-            PhysicsBounds.center.x,
-            PhysicsBounds.min.y + h * 0.5f,
-            -0.05f);
+        cdFillMaterial.SetFloat("_FillAmount", progress);
     }
 
     void LateUpdate()
     {
         if (infoText != null)
             infoText.transform.rotation = Quaternion.identity;
+        if (warningText != null)
+            warningText.transform.rotation = Quaternion.identity;
         if (radiusVisual != null)
             radiusVisual.rotation = Quaternion.identity;
+        AlignWarningIcon();
+        RefreshLinkPulse();
+        RefreshDeleteShake();
+    }
+
+    void RefreshLinkPulse()
+    {
+        if (!linkPulse || visualRenderer == null || deleteShake)
+            return;
+
+        float pulse = 1f + 0.14f * Mathf.Sin(Time.time * 5.5f);
+        visualRenderer.transform.localScale = visualBaseScale * pulse;
+    }
+
+    void RefreshDeleteShake()
+    {
+        if (!deleteShake || visualRenderer == null)
+            return;
+
+        float t = Time.unscaledTime * 44f + deleteShakePhase;
+        visualRenderer.transform.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(t) * 11f);
+        visualRenderer.transform.localPosition = new Vector3(Mathf.Sin(t * 1.13f) * 0.04f, Mathf.Cos(t * 0.97f) * 0.03f, 0f);
+        visualRenderer.transform.localScale = visualBaseScale * (1f + 0.04f * Mathf.Sin(t * 0.5f));
+    }
+
+    void AlignWarningIcon()
+    {
+        if (warningIcon == null || warningText == null || !warningIcon.gameObject.activeSelf)
+            return;
+
+        warningIcon.transform.rotation = Quaternion.identity;
+        var textRenderer = warningText.GetComponent<Renderer>();
+        if (textRenderer == null)
+            return;
+
+        Bounds textBounds = textRenderer.bounds;
+        float iconW = warningIcon.bounds.size.x;
+        if (iconW < 0.01f)
+            iconW = 0.4f;
+        warningIcon.transform.position = new Vector3(
+            textBounds.min.x - iconW * 0.5f - 0.06f,
+            textBounds.center.y,
+            textBounds.center.z);
     }
 
     TextMesh CreateLabel(string objectName, string text, Color color, float localY, int sortingOrder)
@@ -507,7 +765,7 @@ public class Building : MonoBehaviour
         mesh.anchor = TextAnchor.MiddleCenter;
         mesh.alignment = TextAlignment.Center;
         mesh.fontSize = 48;
-        mesh.characterSize = 0.05f;
+        mesh.characterSize = 0.1f;
         mesh.color = color;
 
         var renderer = go.GetComponent<MeshRenderer>();
@@ -515,11 +773,51 @@ public class Building : MonoBehaviour
         return mesh;
     }
 
+    void CreateWarningLabel(float localY)
+    {
+        warningText = CreateLabel("Warning", "", WarningRed, localY, 51);
+        warningText.anchor = TextAnchor.LowerCenter;
+        warningText.characterSize = 0.1f;
+        warningText.richText = false;
+        warningText.gameObject.SetActive(false);
+
+        var iconGo = new GameObject("WarningIcon");
+        iconGo.transform.SetParent(transform);
+        iconGo.transform.localPosition = new Vector3(0f, localY, -0.1f);
+        warningIcon = iconGo.AddComponent<SpriteRenderer>();
+        warningIcon.sortingOrder = 52;
+        warningIcon.color = WarningRed;
+        if (warningSprite == null)
+            warningSprite = Resources.Load<Sprite>("warning");
+        warningIcon.sprite = warningSprite;
+        if (warningSprite != null)
+        {
+            float spriteSize = Mathf.Max(warningSprite.bounds.size.x, warningSprite.bounds.size.y);
+            float scale = spriteSize > 0.0001f ? 0.42f / spriteSize : 1f;
+            iconGo.transform.localScale = new Vector3(scale, scale, 1f);
+        }
+
+        iconGo.SetActive(false);
+    }
+
+    SpriteRenderer FindVisualRenderer()
+    {
+        Transform visual = transform.Find("Visual");
+        return visual != null ? visual.GetComponent<SpriteRenderer>() : null;
+    }
+
+    public void SetRadiusVisible(bool visible)
+    {
+        if (radiusVisual != null)
+            radiusVisual.gameObject.SetActive(visible);
+    }
+
     void CreateRadiusCircle(float radius)
     {
         var circleGo = new GameObject("Radius");
-        circleGo.transform.SetParent(transform);
+        circleGo.transform.SetParent(transform, false);
         circleGo.transform.localPosition = Vector3.zero;
+        circleGo.transform.localRotation = Quaternion.identity;
         radiusVisual = circleGo.transform;
         var ring = circleGo.AddComponent<LineRenderer>();
         ring.useWorldSpace = false;
@@ -527,9 +825,12 @@ public class Building : MonoBehaviour
         ring.startWidth = 0.04f;
         ring.endWidth = 0.04f;
         ring.material = new Material(Shader.Find("Sprites/Default"));
-        ring.startColor = new Color(0.72f, 0.55f, 0.32f, 0.55f);
-        ring.endColor = new Color(0.72f, 0.55f, 0.32f, 0.55f);
-        ring.sortingOrder = 4;
+        Color color = IsResource
+            ? new Color(0.72f, 0.55f, 0.32f, 0.55f)
+            : new Color(0.2f, 0.85f, 1f, 0.55f);
+        ring.startColor = color;
+        ring.endColor = color;
+        ring.sortingOrder = 2;
         const int segments = 48;
         ring.positionCount = segments;
         for (int i = 0; i < segments; i++)
@@ -537,6 +838,8 @@ public class Building : MonoBehaviour
             float a = i / (float)segments * Mathf.PI * 2f;
             ring.SetPosition(i, new Vector3(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius, 0f));
         }
+
+        circleGo.SetActive(false);
     }
 }
 

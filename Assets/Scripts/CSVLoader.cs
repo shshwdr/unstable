@@ -17,6 +17,7 @@ public class BuildingInfo
 {
     public string identifier;
     public string name;
+    public string desc;
     public string type;
     public string requireResource;
     public List<string> provide;
@@ -68,6 +69,46 @@ public class BuildingInfo
     public bool CanAttack
     {
         get { return attack > 0f; }
+    }
+
+    public bool HasProvideDisplay
+    {
+        get { return !CanAttack && ProvideList != null && ProvideList.Count > 0; }
+    }
+
+    public bool HasStockDisplay
+    {
+        get
+        {
+            if (!HasProvideDisplay || ProvideList == null)
+                return false;
+            for (int i = 0; i < ProvideList.Count; i++)
+            {
+                if (ProvideList[i].id != "coin")
+                    return true;
+            }
+
+            return false;
+        }
+    }
+
+    public bool HasConsumeDisplay
+    {
+        get { return ConsumeList != null && ConsumeList.Count > 0; }
+    }
+
+    public bool ProvidesResource(string resource)
+    {
+        if (!HasProvideDisplay || ProvideList == null || string.IsNullOrEmpty(resource))
+            return false;
+
+        for (int i = 0; i < ProvideList.Count; i++)
+        {
+            if (ProvideList[i].id == resource)
+                return true;
+        }
+
+        return false;
     }
 
     public bool HasSpecial(string flag)
@@ -122,6 +163,25 @@ public class BuildingInfo
 
         return result;
     }
+
+    public static bool ResourceListsOverlap(List<ResourceAmount> a, List<ResourceAmount> b)
+    {
+        if (a == null || b == null || a.Count == 0 || b.Count == 0)
+            return false;
+
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (string.IsNullOrEmpty(a[i].id))
+                continue;
+            for (int j = 0; j < b.Count; j++)
+            {
+                if (a[i].id == b[j].id)
+                    return true;
+            }
+        }
+
+        return false;
+    }
 }
 
 public class EnemyInfo
@@ -163,6 +223,7 @@ public class EnemyInfo
 
 public class EncounterInfo
 {
+    public string level;
     public float time;
     public List<string> enemies;
     public float interval;
@@ -221,6 +282,70 @@ public class EncounterInfo
     }
 }
 
+public class TutorialInfo
+{
+    public string identifier;
+    public string text;
+    public bool isEnd;
+    public List<string> startAction;
+    public List<string> waitToFinish;
+
+    public bool HasWait
+    {
+        get { return HasTokens(waitToFinish); }
+    }
+
+    public static bool HasTokens(List<string> tokens)
+    {
+        if (tokens == null)
+            return false;
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            if (!string.IsNullOrEmpty(tokens[i]))
+                return true;
+        }
+
+        return false;
+    }
+}
+
+public class LevelInfo
+{
+    public string identifier;
+    public string name;
+    public List<string> buildings;
+
+    public List<BuildingInfo> buildingInfos = new List<BuildingInfo>();
+    public List<BuildingInfo> playerBuildings = new List<BuildingInfo>();
+
+    public void ResolveBuildings()
+    {
+        buildingInfos.Clear();
+        playerBuildings.Clear();
+        if (buildings == null)
+            return;
+
+        var map = CSVLoader.Instance.buildingInfoMap;
+        for (int i = 0; i < buildings.Count; i++)
+        {
+            string id = buildings[i];
+            if (string.IsNullOrEmpty(id))
+                continue;
+
+            BuildingInfo info;
+            if (!map.TryGetValue(id, out info) || info == null)
+            {
+                Debug.LogError("level 未知建筑 identifier: " + id);
+                continue;
+            }
+
+            buildingInfos.Add(info);
+            if (info.IsPlayerBuildable)
+                playerBuildings.Add(info);
+        }
+    }
+}
+
 public class CSVLoader : Singleton<CSVLoader>
 {
     public Dictionary<string, BuildingInfo> buildingInfoMap = new Dictionary<string, BuildingInfo>();
@@ -229,6 +354,8 @@ public class CSVLoader : Singleton<CSVLoader>
     public Dictionary<string, EnemyInfo> enemyInfoMap = new Dictionary<string, EnemyInfo>();
     public List<EnemyInfo> enemyList = new List<EnemyInfo>();
     public List<EncounterInfo> encounterList = new List<EncounterInfo>();
+    public List<LevelInfo> levelList = new List<LevelInfo>();
+    public List<TutorialInfo> tutorialList = new List<TutorialInfo>();
 
     bool inited;
 
@@ -255,5 +382,73 @@ public class CSVLoader : Singleton<CSVLoader>
             enemyInfoMap[enemyList[i].identifier] = enemyList[i];
 
         encounterList = CsvUtil.LoadObjects<EncounterInfo>("encounter");
+
+        levelList = CsvUtil.LoadObjects<LevelInfo>("level");
+        var seenLevelIds = new HashSet<string>();
+        for (int i = 0; i < levelList.Count; i++)
+        {
+            LevelInfo level = levelList[i];
+            level.ResolveBuildings();
+            string id = level.identifier;
+            if (!string.IsNullOrEmpty(id) && seenLevelIds.Add(id))
+                continue;
+
+            string next = (i + 1).ToString();
+            int n = i + 1;
+            while (seenLevelIds.Contains(next))
+            {
+                n++;
+                next = n.ToString();
+            }
+            if (!string.IsNullOrEmpty(id))
+                Debug.LogError("level identifier 重复: " + id + " (" + level.name + ")，已改为 " + next);
+            level.identifier = next;
+            seenLevelIds.Add(next);
+        }
+
+        tutorialList = CsvUtil.LoadObjects<TutorialInfo>("tutorial");
+    }
+
+    public List<EncounterInfo> GetEncountersForLevel(string levelId)
+    {
+        var result = new List<EncounterInfo>();
+        if (encounterList == null || string.IsNullOrEmpty(levelId))
+            return result;
+
+        for (int i = 0; i < encounterList.Count; i++)
+        {
+            EncounterInfo info = encounterList[i];
+            if (info != null && info.level == levelId)
+                result.Add(info);
+        }
+
+        return result;
+    }
+
+    public List<TutorialInfo> GetTutorialSteps(string id)
+    {
+        var result = new List<TutorialInfo>();
+        if (tutorialList == null || string.IsNullOrEmpty(id))
+            return result;
+
+        bool inGroup = false;
+        for (int i = 0; i < tutorialList.Count; i++)
+        {
+            TutorialInfo info = tutorialList[i];
+            if (info == null)
+                continue;
+
+            if (!string.IsNullOrEmpty(info.identifier))
+            {
+                if (inGroup)
+                    break;
+                inGroup = info.identifier == id;
+            }
+
+            if (inGroup)
+                result.Add(info);
+        }
+
+        return result;
     }
 }

@@ -127,6 +127,8 @@ public class Enemy : MonoBehaviour
     void OnDisable()
     {
         All.Remove(this);
+        if (world != null && !world.IsRestarting && !world.HasEnded && TutorialManager.Instance != null)
+            TutorialManager.Instance.NotifyEnemyKilled();
     }
 
     void Update()
@@ -173,7 +175,7 @@ public class Enemy : MonoBehaviour
 
     bool ShouldIdle()
     {
-        return (world != null && world.HasEnded)
+        return (world != null && world.IsGameOver)
                || Info == null
                || Health == null
                || !Health.IsAlive;
