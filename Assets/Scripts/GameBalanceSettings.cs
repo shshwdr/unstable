@@ -12,11 +12,9 @@ public class GameBalanceSettings : ScriptableObject
     public float buildingAngularDrag = 2f;
 
     [Header("平衡板")]
-    public float boardWidth = 11f;
     public float boardHeight = 0.35f;
     public float boardMass = 8f;
     public float boardAngularDrag = 2f;
-    public Vector2 pivotPosition = new Vector2(0f, -2.5f);
 
     [Header("回正")]
     [Tooltip("倾角小于这个值时才回正，超过后完全靠建筑配平。")]
@@ -38,4 +36,14 @@ public class GameBalanceSettings : ScriptableObject
     [Header("敌人")]
     [Tooltip("进入攻击后，与更早生成的敌人保持的间距。")]
     public float enemyAttackSpacing = 0.3f;
+
+    [Header("摄像机")]
+    [Tooltip("初始视野大小（正交尺寸），数值越小看得越近。")]
+    public float cameraSize = 8f;
+    [Tooltip("滚轮放大时的最小视野。")]
+    public float cameraZoomMin = 3f;
+    [Tooltip("滚轮缩小时的最大视野。")]
+    public float cameraZoomMax = 16f;
+    [Tooltip("滚轮每格缩放的幅度。")]
+    public float cameraZoomSpeed = 1.2f;
 }

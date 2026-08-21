@@ -1,5 +1,5 @@
 identifier,name,desc,shape,type,requireResource,provide,cd,scale,radius,hp,attack,attackCD,attackRange,consume,cost,special
-core,Fridge,"Protect this, if it is destroyed, you lose.",1|1,core,,,,0.02,,500,,,,,,
+core,Fridge,"Protect this, if it is destroyed, you lose.",1|1,core,,,,0.03,,500,,,,,,
 electricity,Generator,generate electricity,2|2,electricity,,electricity_1,1,0.04,8,100,,,,,10,
 rock,Wheat,Contains wheat,1|1,resource,,,,0.02,3,,,,,,,
 mine,Grain Grinder,make wheat into flour,2|4,mine,rock,ore_1,2,0.03,8,100,,,,electricity_1,10,

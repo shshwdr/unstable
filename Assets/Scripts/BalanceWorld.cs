@@ -5,6 +5,7 @@ public class BalanceWorld : MonoBehaviour
 {
     public GameBalanceSettings settings;
 
+    public List<WorldPlatform> Platforms { get { return platforms; } }
     public PhysicsMaterial2D SharedMaterial { get; private set; }
     public Collider2D BoardCollider { get; private set; }
     public Rigidbody2D BoardBody { get; private set; }
@@ -17,9 +18,9 @@ public class BalanceWorld : MonoBehaviour
     public bool IsAllClearPopup { get { return showAllClearPopup; } }
     public int LevelIndex { get { return levelIndex; } }
     public float Gold { get; private set; }
+    public int DisplayGold { get { return Mathf.FloorToInt(Gold); } }
 
     public const float GoldStart = 100f;
-    public const float GoldPerSecond = 1f;
     public float BoardTilt { get; private set; }
 
     float tiltTimer;
@@ -27,6 +28,7 @@ public class BalanceWorld : MonoBehaviour
     const float TiltHintAngle = 20f;
     int levelIndex;
     bool showAllClearPopup;
+    readonly List<WorldPlatform> platforms = new List<WorldPlatform>();
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void Boot()
@@ -57,9 +59,8 @@ public class BalanceWorld : MonoBehaviour
             bounciness = settings.bounciness
         };
 
-        CreateFulcrum();
-        CreateBoard();
         CreateTiltHint();
+        RebuildPlatforms();
         FitCamera();
         ApplyPhysics();
         Gold = GoldStart;
@@ -76,6 +77,8 @@ public class BalanceWorld : MonoBehaviour
     {
         if (IsRestarting)
             IsRestarting = false;
+
+        HandleCameraZoom();
 
         var tutorial = GetComponent<TutorialManager>();
         bool blocked = tutorial != null && tutorial.BlocksInput;
@@ -114,16 +117,23 @@ public class BalanceWorld : MonoBehaviour
 
     void FixedUpdate()
     {
-        if (BoardBody == null || settings == null)
+        if (settings == null)
             return;
 
-        float angle = Mathf.DeltaAngle(0f, BoardBody.rotation);
-        if (Mathf.Abs(angle) >= settings.restoreAngle)
-            return;
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            WorldPlatform platform = platforms[i];
+            if (platform == null || !platform.IsBalance || platform.Body == null)
+                continue;
 
-        float torque = -angle * settings.restoreStrength
-                       - BoardBody.angularVelocity * settings.restoreDamping;
-        BoardBody.AddTorque(torque);
+            float angle = Mathf.DeltaAngle(0f, platform.Body.rotation);
+            if (Mathf.Abs(angle) >= settings.restoreAngle)
+                continue;
+
+            float torque = -angle * settings.restoreStrength
+                           - platform.Body.angularVelocity * settings.restoreDamping;
+            platform.Body.AddTorque(torque);
+        }
     }
 
     public void ApplyPhysics()
@@ -135,10 +145,14 @@ public class BalanceWorld : MonoBehaviour
         SharedMaterial.friction = settings.friction;
         SharedMaterial.bounciness = settings.bounciness;
 
-        if (BoardBody != null)
+        for (int i = 0; i < platforms.Count; i++)
         {
-            BoardBody.mass = settings.boardMass;
-            BoardBody.angularDrag = settings.boardAngularDrag;
+            WorldPlatform platform = platforms[i];
+            if (platform == null || !platform.IsBalance || platform.Body == null)
+                continue;
+            platform.Body.mass = settings.boardMass;
+            platform.Body.angularDrag = settings.boardAngularDrag;
+            platform.Body.centerOfMass = Vector2.zero;
         }
 
         float buildingAngularDrag = settings.buildingAngularDrag;
@@ -157,7 +171,7 @@ public class BalanceWorld : MonoBehaviour
     {
         if (amount <= 0)
             return true;
-        if (Gold < amount)
+        if (DisplayGold < amount)
             return false;
         Gold -= amount;
         return true;
@@ -261,7 +275,9 @@ public class BalanceWorld : MonoBehaviour
     {
         if (IsGameOver)
             return;
-        Gold += GoldPerSecond * Time.deltaTime;
+        LevelInfo level = CurrentLevel;
+        float rate = level != null ? level.coinIncrease : 1f;
+        Gold += rate * Time.deltaTime;
     }
 
     void CheckVictory()
@@ -301,15 +317,7 @@ public class BalanceWorld : MonoBehaviour
             Destroy(buildings[i].gameObject);
         }
 
-        BoardBody.velocity = Vector2.zero;
-        BoardBody.angularVelocity = 0f;
-        var interpolation = BoardBody.interpolation;
-        BoardBody.interpolation = RigidbodyInterpolation2D.None;
-        BoardBody.rotation = 0f;
-        BoardBody.position = settings.pivotPosition;
-        BoardBody.transform.SetPositionAndRotation(settings.pivotPosition, Quaternion.identity);
-        Physics2D.SyncTransforms();
-        BoardBody.interpolation = interpolation;
+        RebuildPlatforms();
 
         IsGameOver = false;
         IsVictory = false;
@@ -334,10 +342,12 @@ public class BalanceWorld : MonoBehaviour
 
     void CheckFail()
     {
-        if (HasEnded || BoardBody == null)
+        if (HasEnded)
             return;
 
-        BoardTilt = Mathf.Abs(Mathf.DeltaAngle(0f, BoardBody.rotation));
+        BoardTilt = MaxBalanceTilt();
+        if (BoardBody == null && platforms.Count == 0)
+            return;
 
         if (settings.failOnTilt)
         {
@@ -377,51 +387,214 @@ public class BalanceWorld : MonoBehaviour
             Fail();
     }
 
-    void CreateFulcrum()
+    public WorldPlatform GetPlatform(string name)
     {
-        var fulcrum = new GameObject("Fulcrum").transform;
-        fulcrum.SetParent(transform);
-        fulcrum.position = new Vector3(settings.pivotPosition.x, settings.pivotPosition.y - 0.55f, 0f);
-        fulcrum.localScale = new Vector3(1.1f, 1.1f, 1f);
+        if (string.IsNullOrEmpty(name))
+            return null;
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            WorldPlatform platform = platforms[i];
+            if (platform != null && platform.Name == name)
+                return platform;
+        }
 
-        var renderer = fulcrum.gameObject.AddComponent<SpriteRenderer>();
-        renderer.sprite = ShapeUtil.Triangle(new Color(0.18f, 0.18f, 0.2f));
-        renderer.sortingOrder = -1;
+        return null;
     }
 
-    void CreateBoard()
+    float MaxBalanceTilt()
     {
-        var board = new GameObject("Board");
+        WorldPlatform tilting = FindMostTiltedBalance();
+        if (tilting == null || tilting.Body == null)
+            return 0f;
+        return Mathf.Abs(Mathf.DeltaAngle(0f, tilting.Body.rotation));
+    }
+
+    WorldPlatform FindMostTiltedBalance()
+    {
+        WorldPlatform worst = null;
+        float worstTilt = -1f;
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            WorldPlatform platform = platforms[i];
+            if (platform == null || !platform.IsBalance || platform.Body == null)
+                continue;
+            float tilt = Mathf.Abs(Mathf.DeltaAngle(0f, platform.Body.rotation));
+            if (tilt <= worstTilt)
+                continue;
+            worstTilt = tilt;
+            worst = platform;
+        }
+
+        return worst;
+    }
+
+    public bool IsPlatformCollider(Collider2D col)
+    {
+        if (col == null)
+            return false;
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            if (platforms[i] != null && platforms[i].Collider == col)
+                return true;
+        }
+
+        return false;
+    }
+
+    public bool IsPlatformBody(Rigidbody2D body)
+    {
+        if (body == null)
+            return false;
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            if (platforms[i] != null && platforms[i].Body == body)
+                return true;
+        }
+
+        return false;
+    }
+
+    public WorldPlatform FindStandingPlatform(Collider2D col)
+    {
+        if (col == null)
+            return null;
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            WorldPlatform platform = platforms[i];
+            if (platform == null || platform.Collider == null)
+                continue;
+            ColliderDistance2D dist = Physics2D.Distance(col, platform.Collider);
+            if (dist.isOverlapped || dist.distance < 0.08f)
+                return platform;
+        }
+
+        return null;
+    }
+
+    void RebuildPlatforms()
+    {
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            WorldPlatform platform = platforms[i];
+            if (platform == null)
+                continue;
+            if (platform.Root != null)
+            {
+                platform.Root.SetActive(false);
+                Destroy(platform.Root);
+            }
+            if (platform.Fulcrum != null)
+            {
+                platform.Fulcrum.SetActive(false);
+                Destroy(platform.Fulcrum);
+            }
+        }
+
+        platforms.Clear();
+        BoardBody = null;
+        BoardCollider = null;
+
+        LevelInfo level = CurrentLevel;
+        if (level == null || level.platformDefs == null || level.platformDefs.Count == 0)
+        {
+            Debug.LogError("level 没有 platform");
+            return;
+        }
+
+        for (int i = 0; i < level.platformDefs.Count; i++)
+            CreatePlatform(level.platformDefs[i]);
+
+        if (BoardBody == null && platforms.Count > 0)
+        {
+            BoardBody = platforms[0].Body;
+            BoardCollider = platforms[0].Collider;
+        }
+
+        Physics2D.SyncTransforms();
+    }
+
+    void CreatePlatform(PlatformDef def)
+    {
+        if (def == null)
+            return;
+
+        float height = settings != null ? settings.boardHeight : 0.35f;
+        float offsetX = (0.5f - def.pivot) * def.width;
+        Vector3 pos = new Vector3(def.x, def.y, 0f);
+
+        var board = new GameObject(def.IsBalance ? "Balance_" + def.name : "Platform_" + def.name);
         board.transform.SetParent(transform);
-        board.transform.position = settings.pivotPosition;
+        board.transform.position = pos;
 
         var visual = new GameObject("Visual");
         visual.transform.SetParent(board.transform);
-        visual.transform.localPosition = Vector3.zero;
-        visual.transform.localScale = new Vector3(settings.boardWidth, settings.boardHeight, 1f);
+        visual.transform.localPosition = new Vector3(offsetX, 0f, 0f);
+        visual.transform.localScale = new Vector3(def.width, height, 1f);
         var renderer = visual.AddComponent<SpriteRenderer>();
-        renderer.sprite = ShapeUtil.Square(new Color(0.78f, 0.62f, 0.42f));
+        renderer.sprite = ShapeUtil.Square(def.IsBalance
+            ? new Color(0.78f, 0.62f, 0.42f)
+            : new Color(0.58f, 0.52f, 0.46f));
         renderer.sortingOrder = 0;
 
         var body = board.AddComponent<Rigidbody2D>();
-        body.bodyType = RigidbodyType2D.Dynamic;
-        body.constraints = RigidbodyConstraints2D.FreezePosition;
-        body.mass = settings.boardMass;
-        body.angularDrag = settings.boardAngularDrag;
-        body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-        body.interpolation = RigidbodyInterpolation2D.Interpolate;
-        BoardBody = body;
-
         var box = board.AddComponent<BoxCollider2D>();
-        box.size = new Vector2(settings.boardWidth, settings.boardHeight);
+        box.size = new Vector2(def.width, height);
+        box.offset = new Vector2(offsetX, 0f);
         box.sharedMaterial = SharedMaterial;
-        BoardCollider = box;
 
-        var hinge = board.AddComponent<HingeJoint2D>();
-        hinge.autoConfigureConnectedAnchor = false;
-        hinge.anchor = Vector2.zero;
-        hinge.connectedAnchor = settings.pivotPosition;
-        hinge.enableCollision = false;
+        GameObject fulcrumGo = null;
+        if (def.IsBalance)
+        {
+            body.bodyType = RigidbodyType2D.Dynamic;
+            body.constraints = RigidbodyConstraints2D.FreezePosition;
+            body.mass = settings != null ? settings.boardMass : 8f;
+            body.angularDrag = settings != null ? settings.boardAngularDrag : 2f;
+            body.centerOfMass = Vector2.zero;
+            body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+            body.interpolation = RigidbodyInterpolation2D.Interpolate;
+
+            var hinge = board.AddComponent<HingeJoint2D>();
+            hinge.autoConfigureConnectedAnchor = false;
+            hinge.anchor = Vector2.zero;
+            hinge.connectedAnchor = new Vector2(def.x, def.y);
+            hinge.enableCollision = false;
+
+            fulcrumGo = CreateFulcrum(pos);
+        }
+        else
+        {
+            body.bodyType = RigidbodyType2D.Kinematic;
+            body.constraints = RigidbodyConstraints2D.FreezeAll;
+        }
+
+        var created = new WorldPlatform
+        {
+            Def = def,
+            Root = board,
+            Fulcrum = fulcrumGo,
+            Body = body,
+            Collider = box
+        };
+        platforms.Add(created);
+
+        if (BoardBody == null && def.IsBalance)
+        {
+            BoardBody = body;
+            BoardCollider = box;
+        }
+    }
+
+    GameObject CreateFulcrum(Vector3 boardPos)
+    {
+        var fulcrum = new GameObject("Fulcrum");
+        fulcrum.transform.SetParent(transform);
+        fulcrum.transform.position = new Vector3(boardPos.x, boardPos.y - 0.55f, 0f);
+        fulcrum.transform.localScale = new Vector3(1.1f, 1.1f, 1f);
+
+        var renderer = fulcrum.AddComponent<SpriteRenderer>();
+        renderer.sprite = ShapeUtil.Triangle(new Color(0.18f, 0.18f, 0.2f));
+        renderer.sortingOrder = -1;
+        return fulcrum;
     }
 
     void CreateTiltHint()
@@ -444,16 +617,50 @@ public class BalanceWorld : MonoBehaviour
         if (tiltHint == null)
             return;
 
-        bool show = !HasEnded && BoardBody != null && BoardTilt >= TiltHintAngle;
+        WorldPlatform tilting = FindMostTiltedBalance();
+        bool show = !HasEnded && tilting != null && tilting.Body != null && BoardTilt >= TiltHintAngle;
         tiltHint.gameObject.SetActive(show);
         if (!show)
             return;
 
         float below = settings != null ? settings.boardHeight * 0.5f + 0.7f : 0.9f;
-        tiltHint.transform.position = BoardBody.transform.TransformPoint(new Vector3(0f, -below, -0.1f));
+        tiltHint.transform.position = tilting.Body.transform.TransformPoint(new Vector3(0f, -below, -0.1f));
         tiltHint.transform.rotation = Quaternion.identity;
         float pulse = 1f + 0.16f * Mathf.Sin(Time.time * 5.5f);
         tiltHint.transform.localScale = new Vector3(pulse, pulse, 1f);
+    }
+
+    void HandleCameraZoom()
+    {
+        Camera cam = Camera.main;
+        if (cam == null || settings == null)
+            return;
+
+        float scroll = Input.mouseScrollDelta.y;
+        if (Mathf.Abs(scroll) < 0.01f)
+            return;
+
+        float min;
+        float max;
+        GetCameraZoomRange(out min, out max);
+        cam.orthographicSize = Mathf.Clamp(
+            cam.orthographicSize - scroll * settings.cameraZoomSpeed,
+            min,
+            max);
+    }
+
+    void GetCameraZoomRange(out float min, out float max)
+    {
+        min = settings.cameraZoomMin;
+        max = settings.cameraZoomMax;
+        if (min > max)
+        {
+            float swap = min;
+            min = max;
+            max = swap;
+        }
+        min = Mathf.Max(0.1f, min);
+        max = Mathf.Max(min, max);
     }
 
     void FitCamera()
@@ -463,7 +670,15 @@ public class BalanceWorld : MonoBehaviour
             return;
 
         cam.orthographic = true;
-        cam.orthographicSize = 8f;
+        float size = settings != null ? settings.cameraSize : 8f;
+        if (settings != null)
+        {
+            float min;
+            float max;
+            GetCameraZoomRange(out min, out max);
+            size = Mathf.Clamp(size, min, max);
+        }
+        cam.orthographicSize = size;
         cam.transform.position = new Vector3(0f, 0.4f, -10f);
         cam.backgroundColor = new Color(0.55f, 0.74f, 0.86f);
     }
@@ -596,6 +811,35 @@ public class BalanceWorld : MonoBehaviour
             showAllClearPopup = false;
         if (GUI.Button(new Rect(box.x + box.width - 30f - btnW, btnY, btnW, btnH), "Restart last level", btn))
             Restart();
+    }
+}
+
+public class WorldPlatform
+{
+    public PlatformDef Def;
+    public GameObject Root;
+    public GameObject Fulcrum;
+    public Rigidbody2D Body;
+    public Collider2D Collider;
+
+    public string Name
+    {
+        get { return Def != null ? Def.name : null; }
+    }
+
+    public bool IsBalance
+    {
+        get { return Def != null && Def.IsBalance; }
+    }
+
+    public float Width
+    {
+        get { return Def != null ? Def.width : 0f; }
+    }
+
+    public float Pivot
+    {
+        get { return Def != null ? Def.pivot : 0.5f; }
     }
 }
 

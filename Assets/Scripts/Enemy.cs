@@ -262,14 +262,18 @@ public class Enemy : MonoBehaviour
 
     void AlignToBoard()
     {
-        if (world == null || world.BoardBody == null)
+        Rigidbody2D board = WalkBoard();
+        if (board == null)
             return;
-        body.rotation = world.BoardBody.rotation;
+        body.rotation = board.rotation;
     }
 
     void WalkAlongBoard(Building target)
     {
-        Vector2 along = world.BoardBody.transform.right;
+        Rigidbody2D board = WalkBoard();
+        if (board == null)
+            return;
+        Vector2 along = board.transform.right;
         Vector2 toTarget = (Vector2)(target.transform.position - transform.position);
         float alongDelta = Vector2.Dot(toTarget, along);
         if (Mathf.Abs(alongDelta) < 0.04f)
@@ -283,8 +287,11 @@ public class Enemy : MonoBehaviour
 
     void WalkAlongSign(float sign)
     {
-        Vector2 along = world.BoardBody.transform.right;
-        Vector2 up = world.BoardBody.transform.up;
+        Rigidbody2D board = WalkBoard();
+        if (board == null)
+            return;
+        Vector2 along = board.transform.right;
+        Vector2 up = board.transform.up;
         float upSpeed = Vector2.Dot(body.velocity, up);
         body.velocity = along * (sign * Info.speed) + up * upSpeed;
         body.WakeUp();
@@ -301,13 +308,20 @@ public class Enemy : MonoBehaviour
     void SeparateAlongBoard()
     {
         Vector2 push = SeparationFromEarlier();
-        if (push.sqrMagnitude < 0.0001f || world == null || world.BoardBody == null)
+        if (push.sqrMagnitude < 0.0001f)
         {
             StopAlongBoard();
             return;
         }
 
-        float alongDelta = Vector2.Dot(push, world.BoardBody.transform.right);
+        Rigidbody2D board = WalkBoard();
+        if (board == null)
+        {
+            StopAlongBoard();
+            return;
+        }
+
+        float alongDelta = Vector2.Dot(push, board.transform.right);
         if (Mathf.Abs(alongDelta) < 0.01f)
         {
             StopAlongBoard();
@@ -339,8 +353,9 @@ public class Enemy : MonoBehaviour
             Vector2 away = (Vector2)(transform.position - other.transform.position);
             if (away.sqrMagnitude < 0.0001f)
             {
-                if (world != null && world.BoardBody != null)
-                    away = world.BoardBody.transform.right;
+                Rigidbody2D board = WalkBoard();
+                if (board != null)
+                    away = board.transform.right;
                 else
                     away = Vector2.right;
             }
@@ -355,12 +370,24 @@ public class Enemy : MonoBehaviour
 
     void StopAlongBoard()
     {
-        if (body == null || world == null || world.BoardBody == null)
+        Rigidbody2D board = WalkBoard();
+        if (body == null || board == null)
             return;
 
-        Vector2 up = world.BoardBody.transform.up;
+        Vector2 up = board.transform.up;
         float upSpeed = Vector2.Dot(body.velocity, up);
         body.velocity = up * upSpeed;
+    }
+
+    Rigidbody2D WalkBoard()
+    {
+        var col = GetComponent<Collider2D>();
+        WorldPlatform standing = world != null ? world.FindStandingPlatform(col) : null;
+        if (standing != null && standing.Body != null)
+            return standing.Body;
+        if (world != null)
+            return world.BoardBody;
+        return null;
     }
 
     bool IsGrounded()
@@ -369,7 +396,7 @@ public class Enemy : MonoBehaviour
         if (col == null)
             return false;
 
-        if (NearSurface(col, world != null ? world.BoardCollider : null))
+        if (world != null && world.FindStandingPlatform(col) != null)
             return true;
 
         for (int i = 0; i < Building.All.Count; i++)

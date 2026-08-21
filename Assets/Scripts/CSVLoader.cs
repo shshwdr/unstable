@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using Sinbad;
 using UnityEngine;
 
@@ -303,14 +304,46 @@ public class TutorialInfo
     }
 }
 
+public class PlatformDef
+{
+    public string type;
+    public string name;
+    public float x;
+    public float y;
+    public float width;
+    public float pivot = 0.5f;
+
+    public bool IsBalance
+    {
+        get { return type == "balance"; }
+    }
+
+    public Vector2 Position
+    {
+        get { return new Vector2(x, y); }
+    }
+}
+
+public class MineDef
+{
+    public string resourceId;
+    public string platformName;
+    public string side;
+}
+
 public class LevelInfo
 {
     public string identifier;
     public string name;
     public List<string> buildings;
+    public List<string> platform;
+    public List<string> mines;
+    public float coinIncrease = 1f;
 
     public List<BuildingInfo> buildingInfos = new List<BuildingInfo>();
     public List<BuildingInfo> playerBuildings = new List<BuildingInfo>();
+    public List<PlatformDef> platformDefs = new List<PlatformDef>();
+    public List<MineDef> mineDefs = new List<MineDef>();
 
     public void ResolveBuildings()
     {
@@ -337,6 +370,152 @@ public class LevelInfo
             if (info.IsPlayerBuildable)
                 playerBuildings.Add(info);
         }
+    }
+
+    public void ResolveLayout()
+    {
+        platformDefs.Clear();
+        mineDefs.Clear();
+
+        var names = new HashSet<string>();
+        if (platform != null)
+        {
+            for (int i = 0; i < platform.Count; i++)
+            {
+                PlatformDef def;
+                if (!TryParsePlatform(platform[i], out def))
+                    continue;
+                if (!names.Add(def.name))
+                {
+                    Debug.LogError("level platform 名字重复: " + def.name + " (" + platform[i] + ")");
+                    continue;
+                }
+
+                platformDefs.Add(def);
+            }
+        }
+
+        if (mines == null)
+            return;
+
+        for (int i = 0; i < mines.Count; i++)
+        {
+            MineDef def;
+            if (!TryParseMine(mines[i], out def))
+                continue;
+
+            if (!names.Contains(def.platformName))
+            {
+                Debug.LogError("mines 引用了未知 platform: " + def.platformName + " (" + mines[i] + ")");
+                continue;
+            }
+
+            BuildingInfo info;
+            if (!CSVLoader.Instance.buildingInfoMap.TryGetValue(def.resourceId, out info)
+                || info == null || !info.IsResource)
+            {
+                Debug.LogError("mines 未知资源 identifier: " + def.resourceId);
+                continue;
+            }
+
+            mineDefs.Add(def);
+        }
+    }
+
+    static bool TryParsePlatform(string token, out PlatformDef def)
+    {
+        def = null;
+        if (string.IsNullOrEmpty(token))
+            return false;
+
+        string[] parts = token.Split('_');
+        if (parts.Length < 5 || parts.Length > 6)
+        {
+            Debug.LogError("platform 格式应为 type_name_x_y_width[_pivot]: " + token);
+            return false;
+        }
+
+        string type = parts[0];
+        if (type != "balance" && type != "platform")
+        {
+            Debug.LogError("platform 未知类型: " + type + " (" + token + ")");
+            return false;
+        }
+
+        if (string.IsNullOrEmpty(parts[1]))
+        {
+            Debug.LogError("platform 缺少名字: " + token);
+            return false;
+        }
+
+        float x;
+        float y;
+        float width;
+        if (!TryParseFloat(parts[2], out x)
+            || !TryParseFloat(parts[3], out y)
+            || !TryParseFloat(parts[4], out width))
+        {
+            Debug.LogError("platform 数值无法解析: " + token);
+            return false;
+        }
+
+        if (width <= 0f)
+        {
+            Debug.LogError("platform 宽度必须大于 0: " + token);
+            return false;
+        }
+
+        float pivot = 0.5f;
+        if (parts.Length == 6 && !TryParseFloat(parts[5], out pivot))
+        {
+            Debug.LogError("platform pivot 无法解析: " + token);
+            return false;
+        }
+
+        def = new PlatformDef
+        {
+            type = type,
+            name = parts[1],
+            x = x,
+            y = y,
+            width = width,
+            pivot = pivot
+        };
+        return true;
+    }
+
+    static bool TryParseMine(string token, out MineDef def)
+    {
+        def = null;
+        if (string.IsNullOrEmpty(token))
+            return false;
+
+        string[] parts = token.Split('_');
+        if (parts.Length != 3)
+        {
+            Debug.LogError("mines 格式应为 resource_platform_side: " + token);
+            return false;
+        }
+
+        string side = parts[2];
+        if (side != "left" && side != "right" && side != "full")
+        {
+            Debug.LogError("mines side 应为 left/right/full: " + token);
+            return false;
+        }
+
+        def = new MineDef
+        {
+            resourceId = parts[0],
+            platformName = parts[1],
+            side = side
+        };
+        return true;
+    }
+
+    static bool TryParseFloat(string text, out float value)
+    {
+        return float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
     }
 }
 
@@ -383,6 +562,7 @@ public class CSVLoader : Singleton<CSVLoader>
         {
             LevelInfo level = levelList[i];
             level.ResolveBuildings();
+            level.ResolveLayout();
             string id = level.identifier;
             if (!string.IsNullOrEmpty(id) && seenLevelIds.Add(id))
                 continue;

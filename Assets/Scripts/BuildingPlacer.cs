@@ -388,7 +388,7 @@ public class BuildingPlacer : MonoBehaviour
             return;
 
         var sb = new System.Text.StringBuilder();
-        if (world != null && info.cost > 0 && world.Gold < info.cost)
+        if (world != null && info.cost > 0 && world.DisplayGold < info.cost)
             sb.Append("Need ").Append(info.cost).Append(" gold");
         if (!InRequiredResourceRange(position, info))
         {
@@ -726,7 +726,7 @@ public class BuildingPlacer : MonoBehaviour
             if (list == null || !list.Contains(info))
                 return false;
         }
-        if (world.Gold < info.cost)
+        if (world.DisplayGold < info.cost)
             return false;
         if (OverlapsBuilding(position, info))
             return false;
@@ -784,31 +784,66 @@ public class BuildingPlacer : MonoBehaviour
 
     public void SpawnStartingResources()
     {
-        if (world.BoardBody == null)
+        LevelInfo level = world.CurrentLevel;
+        if (level == null || level.mineDefs == null)
             return;
 
-        BuildingInfo rock;
-        if (!CSVLoader.Instance.buildingInfoMap.TryGetValue("rock", out rock) || rock == null)
+        for (int i = 0; i < level.mineDefs.Count; i++)
         {
-            Debug.LogError("未找到 identifier 为 rock 的资源建筑");
-            return;
-        }
+            MineDef mine = level.mineDefs[i];
+            WorldPlatform platform = world.GetPlatform(mine.platformName);
+            if (platform == null || platform.Body == null)
+            {
+                Debug.LogError("未找到 mines 对应的 platform: " + mine.platformName);
+                continue;
+            }
 
-        Bounds rockBounds = BuildingArt.PhysicsLocalBounds(rock);
-        SpawnResourceLocal(RandomBoardTopLocalX(rockBounds.size, -1), rock);
-        SpawnResourceLocal(RandomBoardTopLocalX(rockBounds.size, 1), rock);
+            BuildingInfo info;
+            if (!CSVLoader.Instance.buildingInfoMap.TryGetValue(mine.resourceId, out info) || info == null)
+            {
+                Debug.LogError("未找到 identifier 为 " + mine.resourceId + " 的资源建筑");
+                continue;
+            }
+
+            Bounds bounds = BuildingArt.PhysicsLocalBounds(info);
+            SpawnResourceLocal(platform, RandomPlatformTopLocalX(platform, bounds.size, mine.side), info);
+        }
 
         RefreshGhost();
     }
 
-    float RandomBoardTopLocalX(Vector2 size, int side)
+    float RandomPlatformTopLocalX(WorldPlatform platform, Vector2 size, string side)
     {
-        float halfW = world.settings.boardWidth * 0.5f;
+        float left = -platform.Pivot * platform.Width;
+        float right = (1f - platform.Pivot) * platform.Width;
+        float center = 0f;
         float margin = size.x * 0.5f + 0.2f;
-        float min = side < 0 ? -halfW + margin : margin;
-        float max = side < 0 ? -margin : halfW - margin;
+        float min;
+        float max;
+        if (side == "left")
+        {
+            min = left + margin;
+            max = center - margin;
+        }
+        else if (side == "right")
+        {
+            min = center + margin;
+            max = right - margin;
+        }
+        else
+        {
+            min = left + margin;
+            max = right - margin;
+        }
+
         if (min > max)
-            return side < 0 ? -margin : margin;
+        {
+            if (side == "left")
+                return (left + center) * 0.5f;
+            if (side == "right")
+                return (center + right) * 0.5f;
+            return center;
+        }
         return Random.Range(min, max);
     }
 
@@ -853,20 +888,21 @@ public class BuildingPlacer : MonoBehaviour
         return building;
     }
 
-    Building SpawnResourceLocal(float localX, BuildingInfo info)
+    Building SpawnResourceLocal(WorldPlatform platform, float localX, BuildingInfo info)
     {
-        if (world.BoardBody == null)
+        if (platform == null || platform.Body == null)
             return null;
 
         Sprite sprite = BuildingArt.ResolveSprite(info, ColorFor(info.type), true);
         Vector2 scale = BuildingArt.VisualScale(info);
         Bounds phys = BuildingArt.PhysicsLocalBounds(sprite, scale, info);
 
+        float height = world.settings != null ? world.settings.boardHeight : 0.35f;
         var go = new GameObject(info.name);
-        go.transform.SetParent(world.BoardBody.transform, false);
+        go.transform.SetParent(platform.Body.transform, false);
         go.transform.localPosition = new Vector3(
             localX,
-            world.settings.boardHeight * 0.5f - phys.min.y + 0.02f,
+            height * 0.5f - phys.min.y + 0.02f,
             0f);
         go.transform.localRotation = Quaternion.identity;
 
@@ -886,24 +922,29 @@ public class BuildingPlacer : MonoBehaviour
 
     void SeparateFromBoard(Collider2D placed)
     {
-        Collider2D board = world.BoardCollider;
-        if (board == null)
-            return;
-
-        ColliderDistance2D dist = Physics2D.Distance(placed, board);
-        if (!dist.isOverlapped)
+        if (world.Platforms == null)
             return;
 
         float extra = world.settings.overlapPush;
-        Vector2 push = -dist.normal * (-dist.distance + extra);
+        for (int i = 0; i < world.Platforms.Count; i++)
+        {
+            WorldPlatform platform = world.Platforms[i];
+            if (platform == null || platform.Collider == null || platform.Body == null)
+                continue;
 
-        Vector2 sky = world.BoardBody.transform.up;
-        if (Vector2.Dot(sky, Vector2.up) < 0f)
-            sky = -sky;
-        if (Vector2.Dot(push, sky) < 0f)
-            push = sky * (-dist.distance + extra);
+            ColliderDistance2D dist = Physics2D.Distance(placed, platform.Collider);
+            if (!dist.isOverlapped)
+                continue;
 
-        placed.attachedRigidbody.position += push;
+            Vector2 push = -dist.normal * (-dist.distance + extra);
+            Vector2 sky = platform.Body.transform.up;
+            if (Vector2.Dot(sky, Vector2.up) < 0f)
+                sky = -sky;
+            if (Vector2.Dot(push, sky) < 0f)
+                push = sky * (-dist.distance + extra);
+
+            placed.attachedRigidbody.position += push;
+        }
     }
 
     void PushOverlappingBuildings(Collider2D placed)
@@ -914,7 +955,7 @@ public class BuildingPlacer : MonoBehaviour
         for (int i = 0; i < hits.Length; i++)
         {
             Collider2D hit = hits[i];
-            if (hit == null || hit == placed || hit == world.BoardCollider)
+            if (hit == null || hit == placed || world.IsPlatformCollider(hit))
                 continue;
 
             Building building = hit.GetComponent<Building>();
@@ -930,7 +971,7 @@ public class BuildingPlacer : MonoBehaviour
 
             Vector2 push = dist.normal * (-dist.distance + extra);
             Rigidbody2D other = hit.attachedRigidbody;
-            if (other == null || other == world.BoardBody)
+            if (other == null || world.IsPlatformBody(other))
                 continue;
 
             other.position += push;
@@ -1082,7 +1123,7 @@ public class BuildingPlacer : MonoBehaviour
         };
         goldStyle.normal.textColor = Color.black;
         goldStyle.hover.textColor = Color.black;
-        DrawGoldAmount(new Rect(16f, barY + 24f, 280f, 56f), Mathf.FloorToInt(world.Gold), goldStyle, 40f);
+        DrawGoldAmount(new Rect(16f, barY + 24f, 280f, 56f), world.DisplayGold, goldStyle, 40f);
 
         var list = BuildableList();
         if (!Building.CoreExists())
@@ -1154,7 +1195,7 @@ public class BuildingPlacer : MonoBehaviour
                     : new Color(1f, 0.82f, 0.82f);
             else if (selected == i)
                 GUI.backgroundColor = new Color(1f, 0.92f, 0.45f);
-            else if (list[i].cost > world.Gold)
+            else if (list[i].cost > world.DisplayGold)
                 GUI.backgroundColor = new Color(0.82f, 0.82f, 0.82f);
             else
                 GUI.backgroundColor = Color.white;

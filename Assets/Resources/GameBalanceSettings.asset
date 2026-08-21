@@ -17,11 +17,9 @@ MonoBehaviour:
   bounciness: 0
   buildingDensity: 1.4
   buildingAngularDrag: 2
-  boardWidth: 20
   boardHeight: 0.35
   boardMass: 100
   boardAngularDrag: 5
-  pivotPosition: {x: 0, y: -2.5}
   restoreAngle: 10
   restoreStrength: 5
   restoreDamping: 1
@@ -30,3 +28,7 @@ MonoBehaviour:
   failAngle: 45
   failHoldSeconds: 1.2
   enemyAttackSpacing: 0.3
+  cameraSize: 8
+  cameraZoomMin: 3
+  cameraZoomMax: 16
+  cameraZoomSpeed: 1.2
