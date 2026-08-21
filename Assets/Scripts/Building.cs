@@ -22,6 +22,7 @@ public class Building : MonoBehaviour
     Material cdFillMaterial;
     Vector3 visualBaseScale = Vector3.one;
     float cdRemain;
+    float attackRemain;
     bool cycling;
     bool linkPulse;
     bool deleteShake;
@@ -118,6 +119,7 @@ public class Building : MonoBehaviour
         world = FindObjectOfType<BalanceWorld>();
         cycling = false;
         cdRemain = 0f;
+        attackRemain = 0f;
         PhysicsBounds = BuildingArt.PhysicsLocalBounds(info);
 
         float top = PhysicsBounds.max.y;
@@ -201,6 +203,8 @@ public class Building : MonoBehaviour
 
         if (!IsResource && Info.cd > 0f)
             TickWork();
+        if (Info.CanAttack)
+            TickAttack();
 
         RefreshLabels();
         RefreshCdFill();
@@ -358,8 +362,6 @@ public class Building : MonoBehaviour
             return;
         if (!HasWorkConditions())
             return;
-        if (Info.CanAttack && FindEnemyInRange() == null)
-            return;
         if (!TryConsume())
             return;
 
@@ -369,15 +371,26 @@ public class Building : MonoBehaviour
 
     void FinishWork()
     {
-        if (Info.CanAttack)
-        {
-            Enemy target = FindEnemyInRange();
-            if (target != null)
-                Projectile.Fire(transform.position, target.Health, Info.attack, new Color(0.35f, 0.9f, 1f));
-            return;
-        }
-
         Produce();
+    }
+
+    void TickAttack()
+    {
+        float interval = Info.attackCD > 0f ? Info.attackCD : Info.cd;
+        if (interval <= 0f)
+            return;
+
+        if (attackRemain > 0f)
+            attackRemain -= Time.deltaTime;
+        if (attackRemain > 0f)
+            return;
+
+        Enemy target = FindEnemyInRange();
+        if (target == null)
+            return;
+
+        attackRemain = interval;
+        Projectile.Fire(transform.position, target.Health, Info.attack, new Color(0.35f, 0.9f, 1f));
     }
 
     bool TryConsume()
@@ -536,6 +549,12 @@ public class Building : MonoBehaviour
             sb.Append("\nProvide ").Append(FormatAmounts(info.ProvideList));
         if (info.cd > 0f)
             sb.Append("\nCD ").Append(info.cd.ToString("0.##"));
+        if (info.CanAttack)
+        {
+            float attackCd = info.attackCD > 0f ? info.attackCD : info.cd;
+            if (attackCd > 0f)
+                sb.Append("\nAttack CD ").Append(attackCd.ToString("0.##"));
+        }
         if (info.RequiresTop)
             sb.Append(runtime != null && runtime.IsBlockedByTop()
                 ? "\nBlocked: must be on top"

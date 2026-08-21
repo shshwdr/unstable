@@ -140,6 +140,17 @@ public class BalanceWorld : MonoBehaviour
             BoardBody.mass = settings.boardMass;
             BoardBody.angularDrag = settings.boardAngularDrag;
         }
+
+        float buildingAngularDrag = settings.buildingAngularDrag;
+        for (int i = 0; i < Building.All.Count; i++)
+        {
+            Building building = Building.All[i];
+            if (building == null)
+                continue;
+            Rigidbody2D body = building.GetComponent<Rigidbody2D>();
+            if (body != null)
+                body.angularDrag = buildingAngularDrag;
+        }
     }
 
     public bool SpendGold(int amount)

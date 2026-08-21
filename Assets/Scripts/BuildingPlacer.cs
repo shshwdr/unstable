@@ -835,6 +835,7 @@ public class BuildingPlacer : MonoBehaviour
         var body = go.AddComponent<Rigidbody2D>();
         body.bodyType = RigidbodyType2D.Dynamic;
         body.mass = Mathf.Max(0.05f, world.settings.buildingDensity * Mathf.Max(0.01f, phys.size.x * phys.size.y));
+        body.angularDrag = world.settings.buildingAngularDrag;
         body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         body.interpolation = RigidbodyInterpolation2D.Interpolate;
 

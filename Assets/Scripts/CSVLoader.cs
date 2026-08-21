@@ -27,6 +27,7 @@ public class BuildingInfo
     public float radius;
     public float hp;
     public float attack;
+    public float attackCD;
     public float attackRange;
     public List<string> consume;
     public int cost;
@@ -73,7 +74,7 @@ public class BuildingInfo
 
     public bool HasProvideDisplay
     {
-        get { return !CanAttack && ProvideList != null && ProvideList.Count > 0; }
+        get { return ProvideList != null && ProvideList.Count > 0; }
     }
 
     public bool HasStockDisplay

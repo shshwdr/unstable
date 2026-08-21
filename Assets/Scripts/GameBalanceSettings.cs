@@ -8,6 +8,8 @@ public class GameBalanceSettings : ScriptableObject
     [Range(0f, 2f)] public float friction = 0.55f;
     [Range(0f, 1f)] public float bounciness = 0f;
     public float buildingDensity = 1.4f;
+    [Tooltip("建筑刚体的角阻尼。越大越不容易持续旋转，Unity 默认约 0.05。")]
+    public float buildingAngularDrag = 2f;
 
     [Header("平衡板")]
     public float boardWidth = 11f;
@@ -32,4 +34,8 @@ public class GameBalanceSettings : ScriptableObject
     public bool failOnTilt = true;
     public float failAngle = 30f;
     public float failHoldSeconds = 1.2f;
+
+    [Header("敌人")]
+    [Tooltip("进入攻击后，与更早生成的敌人保持的间距。")]
+    public float enemyAttackSpacing = 0.3f;
 }

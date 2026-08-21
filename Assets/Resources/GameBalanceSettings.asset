@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: GameBalanceSettings
   m_EditorClassIdentifier: 
   gravity: -9.81
-  friction: 0.55
+  friction: 0.8
   bounciness: 0
   buildingDensity: 1.4
+  buildingAngularDrag: 2
   boardWidth: 20
   boardHeight: 0.35
   boardMass: 100
@@ -28,3 +29,4 @@ MonoBehaviour:
   failOnTilt: 1
   failAngle: 45
   failHoldSeconds: 1.2
+  enemyAttackSpacing: 0.3

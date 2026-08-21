@@ -100,7 +100,7 @@ public class EncounterManager : MonoBehaviour
         while (spawnQueue.Count > 0 && gameTime >= nextSpawnAt)
         {
             Vector3 pos = gate != null ? gate.transform.position : Vector3.zero;
-            pos += (Vector3)(Random.insideUnitCircle * 0.12f);
+            pos += (Vector3)(Random.insideUnitCircle * 0.5f);
             Enemy.Spawn(spawnQueue.Dequeue(), pos);
             nextSpawnAt = interval <= 0f ? gameTime : gameTime + interval;
         }

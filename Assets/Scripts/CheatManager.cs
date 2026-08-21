@@ -16,8 +16,6 @@ public class CheatManager : MonoBehaviour
     {
         if (world == null)
             return;
-        if (TutorialManager.Instance != null && TutorialManager.Instance.BlocksInput)
-            return;
 
         bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         if (shift)
@@ -31,6 +29,9 @@ public class CheatManager : MonoBehaviour
                 }
             }
         }
+
+        if (TutorialManager.Instance != null && TutorialManager.Instance.BlocksInput)
+            return;
 
         if (Input.GetKeyDown(KeyCode.K))
             Enemy.ClearAll();
