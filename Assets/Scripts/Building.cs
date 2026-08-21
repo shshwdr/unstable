@@ -14,6 +14,9 @@ public class Building : MonoBehaviour
     readonly StringBuilder labelBuilder = new StringBuilder();
 
     TextMesh infoText;
+    Transform stockRoot;
+    readonly List<BuildingStockRow> stockRows = new List<BuildingStockRow>();
+    readonly List<ResourceAmount> drainBuffer = new List<ResourceAmount>();
     TextMesh warningText;
     SpriteRenderer warningIcon;
     SpriteRenderer visualRenderer;
@@ -22,7 +25,9 @@ public class Building : MonoBehaviour
     Material cdFillMaterial;
     Vector3 visualBaseScale = Vector3.one;
     float cdRemain;
+    float workCdDuration;
     float attackRemain;
+    float pendingCoinSale;
     bool cycling;
     bool linkPulse;
     bool deleteShake;
@@ -119,7 +124,9 @@ public class Building : MonoBehaviour
         world = FindObjectOfType<BalanceWorld>();
         cycling = false;
         cdRemain = 0f;
+        workCdDuration = 0f;
         attackRemain = 0f;
+        pendingCoinSale = 0f;
         PhysicsBounds = BuildingArt.PhysicsLocalBounds(info);
 
         float top = PhysicsBounds.max.y;
@@ -127,11 +134,7 @@ public class Building : MonoBehaviour
         if (visualRenderer != null)
             visualBaseScale = visualRenderer.transform.localScale;
         if (info.HasStockDisplay)
-        {
-            infoText = CreateLabel("Info", "", Color.white, 0f, 51);
-            infoText.anchor = TextAnchor.MiddleCenter;
-            infoText.richText = true;
-        }
+            CreateStockDisplay(info);
 
         float hpBarY = top + 0.28f;
         float warningY = info.IsResource ? top + 0.08f : hpBarY + 0.22f;
@@ -169,6 +172,42 @@ public class Building : MonoBehaviour
             stock.Remove(resource);
         else
             stock[resource] = next;
+    }
+
+    public int TotalStock()
+    {
+        int total = 0;
+        foreach (var pair in stock)
+            total += pair.Value;
+        return total;
+    }
+
+    public int TakeAllStock()
+    {
+        return DrainStock(null);
+    }
+
+    public int DrainStock(List<ResourceAmount> into)
+    {
+        int total = 0;
+        if (into != null)
+            into.Clear();
+
+        foreach (var pair in stock)
+        {
+            total += pair.Value;
+            if (into != null)
+                into.Add(new ResourceAmount { id = pair.Key, amount = pair.Value });
+        }
+
+        stock.Clear();
+        return total;
+    }
+
+    public Vector3 ItemWorldPos()
+    {
+        Vector3 local = new Vector3(PhysicsBounds.center.x, PhysicsBounds.center.y, 0f);
+        return transform.TransformPoint(local);
     }
 
     void OnEnable()
@@ -366,7 +405,36 @@ public class Building : MonoBehaviour
             return;
 
         cycling = true;
-        cdRemain = Info.cd;
+        workCdDuration = Info.cd * GetCdMultiplier();
+        cdRemain = workCdDuration;
+    }
+
+    public float GetCdMultiplier()
+    {
+        float multiplier = 1f;
+        Vector2 pos = transform.position;
+        for (int i = 0; i < All.Count; i++)
+        {
+            Building other = All[i];
+            if (other == null || other == this || other.Info == null || !other.Info.IsBuff)
+                continue;
+            if (other.Health != null && !other.Health.IsAlive)
+                continue;
+            if (other.Info.radius <= 0f)
+                continue;
+
+            float dist = Vector2.Distance(pos, other.transform.position);
+            if (dist > other.Info.radius)
+                continue;
+
+            float percent = other.Info.CdReducePercent();
+            if (percent <= 0f)
+                continue;
+
+            multiplier *= Mathf.Max(0f, 1f - percent * 0.01f);
+        }
+
+        return multiplier;
     }
 
     void FinishWork()
@@ -380,6 +448,7 @@ public class Building : MonoBehaviour
         if (interval <= 0f)
             return;
 
+        interval *= GetCdMultiplier();
         if (attackRemain > 0f)
             attackRemain -= Time.deltaTime;
         if (attackRemain > 0f)
@@ -390,11 +459,23 @@ public class Building : MonoBehaviour
             return;
 
         attackRemain = interval;
-        Projectile.Fire(transform.position, target.Health, Info.attack, new Color(0.35f, 0.9f, 1f));
+        Projectile.Fire(ItemWorldPos(), target.Health, Info.attack, AttackProjectileColor(), Info, transform);
+    }
+
+    Color AttackProjectileColor()
+    {
+        if (Info.HasSpecial("slow"))
+            return new Color(0.45f, 0.78f, 1f);
+        if (Info.HasSpecial("aoe"))
+            return new Color(0.92f, 0.68f, 0.28f);
+        return new Color(0.35f, 0.9f, 1f);
     }
 
     bool TryConsume()
     {
+        if (Info.IsCoinMachine)
+            return TryTakeAttackStockForSale();
+
         List<ResourceAmount> needs = Info.ConsumeList;
         if (needs == null || needs.Count == 0)
             return true;
@@ -416,6 +497,15 @@ public class Building : MonoBehaviour
 
     void Produce()
     {
+        if (pendingCoinSale > 0f)
+        {
+            if (world != null)
+                world.AddGold(pendingCoinSale);
+            int coins = pendingCoinSale >= 8f ? 3 : (pendingCoinSale >= 3f ? 2 : 1);
+            ItemFx.Rise("coin", ItemWorldPos(), coins);
+            pendingCoinSale = 0f;
+        }
+
         List<ResourceAmount> list = Info.ProvideList;
         if (list == null)
             return;
@@ -426,11 +516,47 @@ public class Building : MonoBehaviour
             {
                 if (world != null)
                     world.AddGold(list[i].amount);
+                ItemFx.Rise("coin", ItemWorldPos(), Mathf.Clamp(list[i].amount, 1, 3));
                 continue;
             }
 
             AddStock(list[i].id, list[i].amount);
+            ItemFx.Rise(list[i].id, ItemWorldPos(), Mathf.Clamp(list[i].amount, 1, 3));
         }
+    }
+
+    bool TryTakeAttackStockForSale()
+    {
+        pendingCoinSale = 0f;
+        if (Info.radius <= 0f)
+            return false;
+
+        bool took = false;
+        Vector2 pos = transform.position;
+        for (int i = 0; i < All.Count; i++)
+        {
+            Building other = All[i];
+            if (other == null || other == this || other.Info == null || !other.Info.IsAttack)
+                continue;
+            if (other.Health != null && !other.Health.IsAlive)
+                continue;
+
+            float dist = Vector2.Distance(pos, other.transform.position);
+            if (dist > Info.radius)
+                continue;
+
+            int items = other.DrainStock(drainBuffer);
+            if (items <= 0)
+                continue;
+
+            pendingCoinSale += items * other.Info.StockSellPrice;
+            took = true;
+            Vector3 from = other.ItemWorldPos();
+            for (int s = 0; s < drainBuffer.Count; s++)
+                ItemFx.Fly(drainBuffer[s].id, from, transform, drainBuffer[s].amount);
+        }
+
+        return took;
     }
 
     Building FindRichestCovering(string resource, int need)
@@ -547,18 +673,19 @@ public class Building : MonoBehaviour
             sb.Append("\nConsume ").Append(FormatAmounts(info.ConsumeList));
         if (info.HasProvideDisplay)
             sb.Append("\nProvide ").Append(FormatAmounts(info.ProvideList));
+        float cdMul = runtime != null ? runtime.GetCdMultiplier() : 1f;
         if (info.cd > 0f)
-            sb.Append("\nCD ").Append(info.cd.ToString("0.##"));
+            sb.Append("\nCD ").Append((info.cd * cdMul).ToString("0.##"));
         if (info.CanAttack)
         {
             float attackCd = info.attackCD > 0f ? info.attackCD : info.cd;
             if (attackCd > 0f)
-                sb.Append("\nAttack CD ").Append(attackCd.ToString("0.##"));
+                sb.Append("\nAttack CD ").Append((attackCd * cdMul).ToString("0.##"));
         }
         if (info.RequiresTop)
             sb.Append(runtime != null && runtime.IsBlockedByTop()
-                ? "\nBlocked: must be on top"
-                : "\nSpecial: must be on top");
+                ? "\nBlocked: keep the top clear"
+                : "\nSpecial: keep the top clear");
         if (!string.IsNullOrEmpty(info.requireResource))
             sb.Append(runtime != null && !runtime.InRequiredResourceRange()
                 ? "\nBlocked: needs " + info.requireResource
@@ -617,7 +744,14 @@ public class Building : MonoBehaviour
         if (Info == null)
             return;
 
-        if (infoText != null)
+        if (stockRoot != null)
+        {
+            bool show = ShowResourceStock && Info.HasStockDisplay;
+            stockRoot.gameObject.SetActive(show);
+            if (show)
+                RefreshStockRows();
+        }
+        else if (infoText != null)
         {
             bool show = ShowResourceStock && Info.HasStockDisplay;
             infoText.gameObject.SetActive(show);
@@ -635,7 +769,7 @@ public class Building : MonoBehaviour
 
         labelBuilder.Length = 0;
         if (IsBlockedByTop())
-            labelBuilder.Append("Must be on top to work");
+            labelBuilder.Append("Keep the top clear to work");
         else if (!InRequiredResourceRange())
             labelBuilder.Append("Need ").Append(Info.requireResource);
 
@@ -708,7 +842,8 @@ public class Building : MonoBehaviour
         if (cdFill == null || cdFillMaterial == null || Info == null || Info.cd <= 0f)
             return;
 
-        float progress = cycling ? 1f - Mathf.Clamp01(cdRemain / Info.cd) : 0f;
+        float duration = workCdDuration > 0.0001f ? workCdDuration : Info.cd;
+        float progress = cycling ? 1f - Mathf.Clamp01(cdRemain / duration) : 0f;
         if (progress < 0.001f)
         {
             cdFill.enabled = false;
@@ -721,6 +856,8 @@ public class Building : MonoBehaviour
 
     void LateUpdate()
     {
+        if (stockRoot != null)
+            stockRoot.rotation = Quaternion.identity;
         if (infoText != null)
             infoText.transform.rotation = Quaternion.identity;
         if (warningText != null)
@@ -774,8 +911,13 @@ public class Building : MonoBehaviour
 
     TextMesh CreateLabel(string objectName, string text, Color color, float localY, int sortingOrder)
     {
+        return CreateLabel(objectName, text, color, localY, sortingOrder, transform);
+    }
+
+    TextMesh CreateLabel(string objectName, string text, Color color, float localY, int sortingOrder, Transform parent)
+    {
         var go = new GameObject(objectName);
-        go.transform.SetParent(transform);
+        go.transform.SetParent(parent);
         go.transform.localPosition = new Vector3(0f, localY, -0.1f);
         go.transform.localScale = Vector3.one;
 
@@ -790,6 +932,74 @@ public class Building : MonoBehaviour
         var renderer = go.GetComponent<MeshRenderer>();
         renderer.sortingOrder = sortingOrder;
         return mesh;
+    }
+
+    void CreateStockDisplay(BuildingInfo info)
+    {
+        stockRoot = new GameObject("Stock").transform;
+        stockRoot.SetParent(transform, false);
+        stockRoot.localPosition = new Vector3(0f, 0f, -0.1f);
+
+        int rows = 0;
+        for (int i = 0; i < info.ProvideList.Count; i++)
+        {
+            if (!string.IsNullOrEmpty(info.ProvideList[i].id) && info.ProvideList[i].id != "coin")
+                rows++;
+        }
+
+        float startY = (rows - 1) * 0.22f;
+        int row = 0;
+        for (int i = 0; i < info.ProvideList.Count; i++)
+        {
+            string id = info.ProvideList[i].id;
+            if (string.IsNullOrEmpty(id) || id == "coin")
+                continue;
+
+            float y = startY - row * 0.44f;
+            var rowGo = new GameObject("Stock_" + id);
+            rowGo.transform.SetParent(stockRoot, false);
+            rowGo.transform.localPosition = new Vector3(0f, y, 0f);
+
+            var amount = CreateLabel("Amount", "0", Color.white, 0f, 51, rowGo.transform);
+            amount.anchor = TextAnchor.MiddleRight;
+            amount.alignment = TextAlignment.Right;
+            amount.characterSize = 0.11f;
+            amount.transform.localPosition = new Vector3(-0.08f, 0f, 0f);
+
+            var iconGo = new GameObject("Icon");
+            iconGo.transform.SetParent(rowGo.transform, false);
+            iconGo.transform.localPosition = new Vector3(0.16f, 0f, 0f);
+            var icon = iconGo.AddComponent<SpriteRenderer>();
+            icon.sortingOrder = 52;
+            Sprite sprite = ItemArt.Load(id);
+            icon.sprite = sprite;
+            if (sprite != null)
+            {
+                float scale = ItemArt.FitScale(sprite, ItemArt.IconWorldSize);
+                iconGo.transform.localScale = new Vector3(scale, scale, 1f);
+            }
+
+            stockRows.Add(new BuildingStockRow
+            {
+                id = id,
+                amount = amount,
+                icon = icon
+            });
+            row++;
+        }
+    }
+
+    void RefreshStockRows()
+    {
+        for (int i = 0; i < stockRows.Count; i++)
+        {
+            BuildingStockRow row = stockRows[i];
+            int amount = GetStock(row.id);
+            if (row.icon != null && row.icon.sprite != null)
+                row.amount.text = amount.ToString();
+            else
+                row.amount.text = row.id + ":" + amount;
+        }
     }
 
     void CreateWarningLabel(float localY)
@@ -860,6 +1070,13 @@ public class Building : MonoBehaviour
 
         circleGo.SetActive(false);
     }
+}
+
+class BuildingStockRow
+{
+    public string id;
+    public TextMesh amount;
+    public SpriteRenderer icon;
 }
 
 public static class BuildingArt

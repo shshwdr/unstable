@@ -51,6 +51,26 @@ public class BuildingInfo
         get { return type == "resource"; }
     }
 
+    public bool IsBuff
+    {
+        get { return type == "buff"; }
+    }
+
+    public bool IsAttack
+    {
+        get { return type == "attack"; }
+    }
+
+    public bool IsCoinMachine
+    {
+        get { return type == "coinMachine"; }
+    }
+
+    public float StockSellPrice
+    {
+        get { return cost / 10f; }
+    }
+
     public bool IsPlayerBuildable
     {
         get { return !IsCore && !IsResource; }
@@ -120,6 +140,25 @@ public class BuildingInfo
         return false;
     }
 
+    public float CdReducePercent()
+    {
+        if (special == null)
+            return 0f;
+
+        for (int i = 0; i < special.Count; i++)
+        {
+            string flag = special[i];
+            if (string.IsNullOrEmpty(flag) || !flag.StartsWith("cd_"))
+                continue;
+
+            float value;
+            if (float.TryParse(flag.Substring(3), NumberStyles.Float, CultureInfo.InvariantCulture, out value))
+                return value;
+        }
+
+        return 0f;
+    }
+
     public void ParseAmounts()
     {
         ProvideList = ParseResourceList(provide);
@@ -146,6 +185,8 @@ public class BuildingInfo
             }
 
             string id = token.Substring(0, split);
+            if (id == "chess")
+                id = "cheese";
             int amount;
             if (!int.TryParse(token.Substring(split + 1), out amount))
             {

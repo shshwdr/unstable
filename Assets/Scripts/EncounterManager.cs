@@ -58,14 +58,23 @@ public class EncounterManager : MonoBehaviour
         if (world != null && world.IsGameOver)
             return;
 
-        gameTime += Time.deltaTime;
-
         if (hidden)
         {
-            if (gate != null && gate.gameObject.activeSelf)
-                gate.gameObject.SetActive(false);
+            gameTime += Time.deltaTime;
+            HideGate();
             return;
         }
+
+        if (!Building.CoreExists())
+        {
+            HideGate();
+            return;
+        }
+
+        if (gate != null && !gate.gameObject.activeSelf)
+            PlaceGate();
+
+        gameTime += Time.deltaTime;
 
         if (spawning)
             TickSpawn();
@@ -121,7 +130,7 @@ public class EncounterManager : MonoBehaviour
         if (gate == null)
             return;
 
-        if (hidden)
+        if (hidden || !Building.CoreExists())
         {
             gate.gameObject.SetActive(false);
             return;
@@ -137,6 +146,13 @@ public class EncounterManager : MonoBehaviour
         EncounterInfo encounter = list[waveIndex];
         gate.gameObject.SetActive(true);
         gate.transform.position = encounter.Position;
+        Physics2D.SyncTransforms();
+    }
+
+    void HideGate()
+    {
+        if (gate != null && gate.gameObject.activeSelf)
+            gate.gameObject.SetActive(false);
     }
 
     public void SetHidden(bool value)
@@ -180,32 +196,32 @@ public class EncounterManager : MonoBehaviour
         gate.SetCountdown(remain);
     }
 
+    public bool IsPointerOnGate(Vector2 worldPos)
+    {
+        return gate != null && gate.gameObject.activeSelf && gate.Contains(worldPos);
+    }
+
     public bool TryRushAt(Vector2 worldPos)
     {
+        if (!IsPointerOnGate(worldPos))
+            return false;
         if (world != null && world.IsGameOver)
             return false;
-        if (gate == null || !gate.gameObject.activeSelf || spawning)
+        if (!Building.CoreExists())
             return false;
-        if (!gate.Contains(worldPos))
+        if (spawning)
             return false;
 
         List<EncounterInfo> list = CurrentEncounters();
         if (list == null || waveIndex >= list.Count)
             return false;
 
-        if (float.IsInfinity(nextWaveAt))
-        {
-            nextWaveAt = gameTime;
-            return true;
-        }
-
-        float remain = nextWaveAt - gameTime;
-        if (remain <= 0f)
-            return false;
-
-        if (world != null)
+        float remain = float.IsInfinity(nextWaveAt) ? 0f : nextWaveAt - gameTime;
+        if (remain > 0f && world != null)
             world.AddGold(Mathf.CeilToInt(remain));
+
         nextWaveAt = gameTime;
+        TryStartWave();
         return true;
     }
 
@@ -271,6 +287,11 @@ public class SpawnGate : MonoBehaviour
         col.radius = 0.85f;
         col.isTrigger = true;
 
+        var body = gameObject.AddComponent<Rigidbody2D>();
+        body.bodyType = RigidbodyType2D.Kinematic;
+        body.simulated = true;
+        body.interpolation = RigidbodyInterpolation2D.None;
+
         var ringGo = new GameObject("Ring");
         ringGo.transform.SetParent(transform);
         ringGo.transform.localPosition = Vector3.zero;
@@ -306,8 +327,7 @@ public class SpawnGate : MonoBehaviour
 
     public bool Contains(Vector2 worldPos)
     {
-        var col = GetComponent<Collider2D>();
-        return col != null && col.OverlapPoint(worldPos);
+        return ((Vector2)transform.position - worldPos).sqrMagnitude <= 0.85f * 0.85f;
     }
 
     public void SetCountdown(float seconds)

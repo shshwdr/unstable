@@ -9,7 +9,9 @@ public class TutorialManager : MonoBehaviour
     BalanceWorld world;
     EncounterManager encounters;
     readonly List<BuildingInfo> buildable = new List<BuildingInfo>();
+    readonly HashSet<string> newlyAdded = new HashSet<string>();
     List<TutorialInfo> steps;
+    string playingId;
     int stepIndex = -1;
     bool overlay;
     bool destroyButtonVisible = true;
@@ -43,6 +45,11 @@ public class TutorialManager : MonoBehaviour
         get { return buildable; }
     }
 
+    public bool IsNewlyAdded(string identifier)
+    {
+        return !string.IsNullOrEmpty(identifier) && newlyAdded.Contains(identifier);
+    }
+
     void Awake()
     {
         Instance = this;
@@ -72,13 +79,21 @@ public class TutorialManager : MonoBehaviour
         destroyButtonVisible = true;
         finishedStart = false;
         CopyLevelBuildings();
-        if (world != null && world.LevelIndex == 0)
+        if (world == null)
+            return;
+        LevelInfo level = world.CurrentLevel;
+        if (level == null)
+            return;
+        if (level.identifier == "1")
             Play("start");
+        else if (level.identifier == "2")
+            Play("level2");
     }
 
     void CopyLevelBuildings()
     {
         buildable.Clear();
+        newlyAdded.Clear();
         LevelInfo level = world != null ? world.CurrentLevel : null;
         List<BuildingInfo> source = level != null
             ? level.playerBuildings
@@ -94,6 +109,7 @@ public class TutorialManager : MonoBehaviour
 
     public void Play(string id)
     {
+        playingId = id;
         steps = CSVLoader.Instance.GetTutorialSteps(id);
         stepIndex = -1;
         if (steps == null || steps.Count == 0)
@@ -113,8 +129,9 @@ public class TutorialManager : MonoBehaviour
         steps = null;
         stepIndex = -1;
         overlay = false;
-        if (completed)
+        if (completed && playingId == "start")
             finishedStart = true;
+        playingId = null;
         if (world != null)
             world.SetTutorialPaused(false);
     }
@@ -227,6 +244,7 @@ public class TutorialManager : MonoBehaviour
         }
 
         buildable.Add(info);
+        newlyAdded.Add(identifier);
     }
 
     bool WaitsSatisfied(TutorialInfo info)

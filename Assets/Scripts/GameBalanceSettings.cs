@@ -15,6 +15,8 @@ public class GameBalanceSettings : ScriptableObject
     public float boardHeight = 0.35f;
     public float boardMass = 8f;
     public float boardAngularDrag = 2f;
+    [Tooltip("支点梯形短边相对底边的宽度比例。1 为与底边等宽。运行中改也会立刻生效。")]
+    [Range(0.01f, 1f)] public float fulcrumTopWidth = 0.1f;
 
     [Header("回正")]
     [Tooltip("倾角小于这个值时才回正，超过后完全靠建筑配平。")]

@@ -32,6 +32,8 @@ public class BuildingPlacer : MonoBehaviour
     Sprite demolishIcon;
     Sprite goldIcon;
     Texture2D goldTexture;
+    int newBadgeLevel = -1;
+    readonly HashSet<string> seenNewBuildings = new HashSet<string>();
 
     void Awake()
     {
@@ -112,6 +114,20 @@ public class BuildingPlacer : MonoBehaviour
             return;
         }
 
+        Vector3 worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        worldPos.z = 0f;
+
+        var encounters = GetComponent<EncounterManager>();
+        if (Input.GetMouseButtonDown(0) && encounters != null && encounters.IsPointerOnGate(worldPos))
+        {
+            encounters.TryRushAt(worldPos);
+            ghost.gameObject.SetActive(false);
+            hovered = null;
+            ClearLinkPreview();
+            StopDemolishShake();
+            return;
+        }
+
         var tutorial = TutorialManager.Instance;
         if ((tutorial != null && tutorial.BlocksInput) || world.IsAllClearPopup)
         {
@@ -137,8 +153,6 @@ public class BuildingPlacer : MonoBehaviour
                 SelectDemolish();
         }
 
-        Vector3 worldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        worldPos.z = 0f;
         hovered = FindBuildingAt(worldPos);
         RefreshDemolishShake();
         bool overBar = OverBuildBar();
@@ -189,14 +203,6 @@ public class BuildingPlacer : MonoBehaviour
                 Demolish(hovered);
             if (!dragging || demolishMode)
                 return;
-        }
-
-        var encounters = GetComponent<EncounterManager>();
-        if (!overBar && !buttonHold && !demolishMode && Input.GetMouseButtonDown(0) &&
-            encounters != null && encounters.TryRushAt(worldPos))
-        {
-            ghost.gameObject.SetActive(false);
-            return;
         }
 
         if (overBar && !dragging)
@@ -400,7 +406,7 @@ public class BuildingPlacer : MonoBehaviour
         {
             if (sb.Length > 0)
                 sb.Append('\n');
-            sb.Append("Must be on top to work");
+            sb.Append("Keep the top clear to work");
         }
 
         List<ResourceAmount> needs = info.ConsumeList;
@@ -1003,6 +1009,47 @@ public class BuildingPlacer : MonoBehaviour
         return CSVLoader.Instance.playerBuildingList;
     }
 
+    void SyncNewBadgeLevel()
+    {
+        int idx = world != null ? world.LevelIndex : -1;
+        if (idx == newBadgeLevel)
+            return;
+        newBadgeLevel = idx;
+        seenNewBuildings.Clear();
+    }
+
+    bool ShouldShowNewBadge(BuildingInfo info, int buttonIndex)
+    {
+        if (info == null || world == null || !world.IsNewThisLevel(info))
+            return false;
+
+        SyncNewBadgeLevel();
+        if (HitBuildButton() == buttonIndex)
+        {
+            bool blocked = TutorialManager.Instance != null && TutorialManager.Instance.BlocksInput;
+            if (!blocked)
+            {
+                seenNewBuildings.Add(info.identifier);
+                return false;
+            }
+        }
+
+        return !seenNewBuildings.Contains(info.identifier);
+    }
+
+    static void DrawNewBadge(Rect button)
+    {
+        var style = new GUIStyle(GUI.skin.label)
+        {
+            fontSize = 22,
+            fontStyle = FontStyle.Bold,
+            alignment = TextAnchor.UpperRight
+        };
+        style.normal.textColor = new Color(0.12f, 0.55f, 0.18f);
+        style.hover.textColor = style.normal.textColor;
+        GUI.Label(new Rect(button.x, button.y + 4f, button.width - 8f, 28f), "NEW", style);
+    }
+
     static bool DestroyVisible()
     {
         return TutorialManager.Instance == null || TutorialManager.Instance.DestroyButtonVisible;
@@ -1126,7 +1173,9 @@ public class BuildingPlacer : MonoBehaviour
         DrawGoldAmount(new Rect(16f, barY + 24f, 280f, 56f), world.DisplayGold, goldStyle, 40f);
 
         var list = BuildableList();
-        if (!Building.CoreExists())
+        bool coreExists = Building.CoreExists();
+        int buildCount = list != null ? list.Count : 0;
+        if (!coreExists && buildCount <= 0)
         {
             barRect = new Rect(0f, Screen.height - 220f, Screen.width, 220f);
             buttonRects = null;
@@ -1142,8 +1191,7 @@ public class BuildingPlacer : MonoBehaviour
             return;
         }
 
-        int buildCount = list != null ? list.Count : 0;
-        bool showDestroy = DestroyVisible();
+        bool showDestroy = coreExists && DestroyVisible();
         int n = buildCount + (showDestroy ? 1 : 0);
         if (n <= 0)
         {
@@ -1200,6 +1248,8 @@ public class BuildingPlacer : MonoBehaviour
             else
                 GUI.backgroundColor = Color.white;
 
+            bool wasEnabled = GUI.enabled;
+            GUI.enabled = coreExists;
             GUI.Button(r, GUIContent.none, btnStyle);
             GUI.backgroundColor = oldBg;
 
@@ -1221,7 +1271,24 @@ public class BuildingPlacer : MonoBehaviour
             {
                 DrawBuildingIcon(imgRect, list[i]);
                 DrawNameAndCost(textRect, list[i].name, list[i].cost, captionStyle);
+                if (ShouldShowNewBadge(list[i], i))
+                    DrawNewBadge(r);
             }
+
+            GUI.enabled = wasEnabled;
+        }
+
+        if (!coreExists)
+        {
+            var hintStyle = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = 32,
+                fontStyle = FontStyle.Bold,
+                alignment = TextAnchor.MiddleCenter
+            };
+            hintStyle.normal.textColor = Color.black;
+            hintStyle.hover.textColor = Color.black;
+            GUI.Label(new Rect(0f, barY - 40f, Screen.width, 36f), "Place Core", hintStyle);
         }
     }
 

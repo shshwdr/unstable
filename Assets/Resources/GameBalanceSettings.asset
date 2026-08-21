@@ -19,10 +19,11 @@ MonoBehaviour:
   buildingAngularDrag: 2
   boardHeight: 0.35
   boardMass: 100
-  boardAngularDrag: 5
-  restoreAngle: 10
+  boardAngularDrag: 1
+  fulcrumTopWidth: 0.05
+  restoreAngle: 20
   restoreStrength: 5
-  restoreDamping: 1
+  restoreDamping: 0
   overlapPush: 0.12
   failOnTilt: 1
   failAngle: 45

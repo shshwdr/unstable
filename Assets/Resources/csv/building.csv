@@ -1,15 +1,15 @@
 identifier,name,desc,shape,type,requireResource,provide,cd,scale,radius,hp,attack,attackCD,attackRange,consume,cost,special
-core,Fridge,"Protect this, if it is destroyed, you lose.",1|1,core,,,,0.03,,500,,,,,,
-electricity,Generator,generate electricity,2|2,electricity,,electricity_1,1,0.04,8,100,,,,,10,
-rock,Wheat,Contains wheat,1|1,resource,,,,0.02,3,,,,,,,
-mine,Grain Grinder,make wheat into flour,2|4,mine,rock,ore_1,2,0.03,8,100,,,,electricity_1,10,
-attack,Oven,"bake flour into bread, shoot one enemy",2|1.8,attack,,copper_1,3,0.03,5,100,20,1,5,ore_1|electricity_1,10,
-wall,Cutting Boards,square wall to protect other buildings,1|1,wall,,,,0.03,,200,,,,,10,
-sunElectricity,Solar Generator,place on top to generate electricity,2|0.7,sunElectricity,,electricity_1,1.3,0.03,8,8,,,,,5,requireTop
-coinMachine,Cash Register,take cooked food nearby and sell to get coins,3|2,coinMachine,,coin_5,5,0.03,3,100,,,,copper_4|electricity_1,20,
-sheet,Baking Sheets,a long flat wall,3|0.6,wall,,,,0.03,,,,,,,,
-buffTower,Salt Grinder,increase attack speed of nearly attack utils,1|2.5,buff,,,,0.03,,,,,,,,
-cow,Cow,Contains milk,1|1,resource,,,,0.02,,,,,,,,
-mixer,Butter Shaker,shake milk into butter,2|4,mine,,,,0.03,,,,,,,,
-cheeseAttack,Cheese Cloche,"bake butter into cheese, shoot cheese to slow down enemies",3|2,attack,,,,0.03,,,,,,,,
-CroissantAttack,Croissant Oven,"bake butter and floor into croissant, shoot and do aoe damage to enemies",3|2.5,attack,,,,0.03,,,,,,,,
+core,Fridge,"Protect this fridge. If it is destroyed, you lose.",1|1,core,,,,0.03,,500,,,,,,
+electricity,Generator,Generates and stores electricity.,2|2,electricity,,electricity_1,1,0.04,8,100,,,,,10,
+rock,Wheat,A wheat field. Place a Grain Grinder nearby.,1|1,resource,,,,0.02,3,,,,,,,
+mine,Grain Grinder,Grinds nearby wheat into flour.,2|4,mine,rock,flour_1,2,0.03,8,100,,,,electricity_1,10,
+attack,Oven,Bakes flour into bread and shoots one enemy.,2|1.8,attack,,bread_1,3,0.03,4,100,5,1,4,flour_1|electricity_1,10,
+wall,Cutting Board,A sturdy square wall that protects other cookware.,1|1,wall,,,,0.03,,200,,,,,10,
+sunElectricity,Solar Generator,Generates electricity if nothing is stacked on top of it.,2|0.7,sunElectricity,,electricity_1,1.3,0.03,8,8,,,,,5,requireTop
+coinMachine,Cash Register,Sells nearby cooked food for coins.,3|2,coinMachine,,,1,0.03,4,100,,,,,20,
+sheet,Baking Sheet,"A long, flat wall.",3|0.6,wall,,,,0.03,,,,,,,10,
+buffTower,Salt Grinder,Speeds up nearby cookware.,1|2.5,buff,,,,0.03,4,,,,,,10,cd_20
+cow,Cow,A dairy cow. Place a Butter Shaker nearby.,1|1,resource,,,,0.02,3,,,,,,,
+mixer,Butter Shaker,Shakes nearby milk into butter.,2|4,mine,cow,butter_1,2,0.03,8,,,,,electricity_1,15,
+cheeseAttack,Cheese Cloche,Bakes butter into cheese. Shots slow enemies.,3|2,attack,,chess_1,3,0.03,4,100,5,1,4,butter_1|electricity_1,15,slow
+CroissantAttack,Croissant Oven,Bakes flour and butter into croissants. Shots deal area damage.,3|2.5,attack,,croissant_1,5,0.03,4,100,5,1,4,flour_1|butter_1|electricity_1,15,aoe

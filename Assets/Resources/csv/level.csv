@@ -1,7 +1,7 @@
 identifier,name,buildings,platform,mines,coinIncrease
 1,Tutorial,,balance_b1_0_-2.5_20,rock_b1_left|rock_b1_right,1
-2,Balance,electricity|mine|attack|wall|buffTower,balance_b1_-2.5_-2.5_20_0.35,rock_b1_left|rock_b1_right,1
-3,Floating Island,mine|attack|wall|sunElectricity|buffTower,balance_b1_0_-2.5_20|platform_i_5_4_5,rock_b1_left|rock_i_full,1
-4,Short on Money,mixer|cheeseAttack|wall|electricity|coinMachine,balance_b1_0_-2.5_20|platform_i_-5_4_5,cow_b1_left|cow_i_full,0
-5,More Balance,mine|attack|mixer|cheeseAttack|wall|sunElectricity|coinMachine|sheet,balance_b1_0_-2.5_10|balance_b2_4_4_5|balance_b3_-4_4_5,rock_b3_full|cow_b2_full,1
-6,Lots Enemy,electricity|mine|attack|mixer|cheeseAttack|wall|sunElectricity|coinMachine|sheet|CroissantAttack,balance_b1_0_-2.5_10|balance_b2_4_4_5|balance_b3_-4_4_5,rock_b3_full|cow_b2_full,1
+2,Floating Island,electricity|mine|attack|wall|buffTower,balance_b1_0_-2.5_20|platform_i_5_4_3,rock_b1_left|rock_i_full,1
+3,Off-Center,sunElectricity|mine|attack|wall|buffTower,balance_b1_-2.5_-2.5_20_0.35,rock_b1_left|rock_b1_right,1
+4,Tight Budget,electricity|mine|attack|wall||coinMachine,balance_b1_0_-2.5_20|platform_i_-5_4_3,rock_b1_right|rock_i_full,0
+5,Three Boards,electricity|sunElectricity|mixer|cheeseAttack|wall|coinMachine|sheet|buffTower,balance_b1_0_-2.5_10|balance_b2_4_4_5|balance_b3_-4_4_5,cow_b3_full|cow_b2_full,1
+6,Dinner Rush,electricity|sunElectricity|mine|attack|mixer|cheeseAttack|wall|coinMachine|sheet|CroissantAttack,balance_b1_0_-2.5_10|balance_b2_4_4_5|balance_b3_-4_4_5,rock_b3_full|cow_b2_full,1

@@ -12,11 +12,16 @@ public class Enemy : MonoBehaviour
     public Health Health { get; private set; }
 
     Transform visual;
+    SpriteRenderer visualRenderer;
     Rigidbody2D body;
     float attackTimer;
     BalanceWorld world;
     int spawnOrder;
     Building attackTarget;
+    bool slowed;
+
+    const float SlowMul = 0.5f;
+    static readonly Color SlowColor = new Color(0.25f, 0.55f, 1f);
 
     public bool IsMelee
     {
@@ -53,14 +58,14 @@ public class Enemy : MonoBehaviour
         visual.SetParent(transform);
         visual.localPosition = Vector3.zero;
 
-        var renderer = visual.gameObject.AddComponent<SpriteRenderer>();
-        renderer.sortingOrder = 10;
+        visualRenderer = visual.gameObject.AddComponent<SpriteRenderer>();
+        visualRenderer.sortingOrder = 10;
 
         if (info.isMelee)
         {
             Vector2 size = info.Size;
             visual.localScale = new Vector3(size.x, size.y, 1f);
-            renderer.sprite = ShapeUtil.Square(ColorFor(info.identifier));
+            visualRenderer.sprite = ShapeUtil.Square(ColorFor(info.identifier));
             SetupMeleePhysics(size);
             IgnoreResourceColliders();
             IgnoreOtherMeleeColliders();
@@ -70,7 +75,7 @@ public class Enemy : MonoBehaviour
         }
 
         visual.localScale = new Vector3(0.45f, 0.45f, 1f);
-        renderer.sprite = ShapeUtil.Triangle(ColorFor(info.identifier));
+        visualRenderer.sprite = ShapeUtil.Triangle(ColorFor(info.identifier));
         Health = gameObject.AddComponent<Health>();
         Health.Init(info.hp, new Vector3(0f, 0.45f, 0f));
     }
@@ -209,7 +214,7 @@ public class Enemy : MonoBehaviour
 
         Vector3 delta = target.transform.position - transform.position;
         Face(delta);
-        transform.position += delta.normalized * Info.speed * Time.deltaTime;
+        transform.position += delta.normalized * CurrentSpeed() * Time.deltaTime;
     }
 
     void TickMeleeCombat()
@@ -245,7 +250,7 @@ public class Enemy : MonoBehaviour
         if (attackTimer > 0f)
             return;
 
-        attackTimer = Info.attackCD;
+        attackTimer = CurrentAttackCd();
         Projectile.Fire(transform.position, target.Health, Info.attack, new Color(1f, 0.35f, 0.2f));
     }
 
@@ -293,7 +298,7 @@ public class Enemy : MonoBehaviour
         Vector2 along = board.transform.right;
         Vector2 up = board.transform.up;
         float upSpeed = Vector2.Dot(body.velocity, up);
-        body.velocity = along * (sign * Info.speed) + up * upSpeed;
+        body.velocity = along * (sign * CurrentSpeed()) + up * upSpeed;
         body.WakeUp();
     }
 
@@ -302,7 +307,7 @@ public class Enemy : MonoBehaviour
         Vector2 push = SeparationFromEarlier();
         if (push.sqrMagnitude < 0.0001f)
             return;
-        transform.position += (Vector3)(push.normalized * Info.speed * Time.deltaTime);
+        transform.position += (Vector3)(push.normalized * CurrentSpeed() * Time.deltaTime);
     }
 
     void SeparateAlongBoard()
@@ -429,6 +434,28 @@ public class Enemy : MonoBehaviour
         Vector3 vp = cam.WorldToViewportPoint(transform.position);
         if (vp.y < -0.2f || vp.x < -0.35f || vp.x > 1.35f)
             Destroy(gameObject);
+    }
+
+    public void ApplySlow()
+    {
+        slowed = true;
+        if (visualRenderer == null || Info == null)
+            return;
+
+        visualRenderer.sprite = Info.isMelee
+            ? ShapeUtil.Square(SlowColor)
+            : ShapeUtil.Triangle(SlowColor);
+        visualRenderer.color = Color.white;
+    }
+
+    float CurrentSpeed()
+    {
+        return Info.speed * (slowed ? SlowMul : 1f);
+    }
+
+    float CurrentAttackCd()
+    {
+        return Info.attackCD * (slowed ? 1f / SlowMul : 1f);
     }
 
     static Color ColorFor(string identifier)

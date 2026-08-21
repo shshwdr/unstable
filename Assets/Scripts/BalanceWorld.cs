@@ -26,6 +26,9 @@ public class BalanceWorld : MonoBehaviour
     float tiltTimer;
     TextMesh tiltHint;
     const float TiltHintAngle = 20f;
+    const float FulcrumScale = 1.1f;
+    static readonly Color FulcrumColor = new Color(0.18f, 0.18f, 0.2f);
+    float appliedFulcrumTopWidth = float.NaN;
     int levelIndex;
     bool showAllClearPopup;
     readonly List<WorldPlatform> platforms = new List<WorldPlatform>();
@@ -165,6 +168,27 @@ public class BalanceWorld : MonoBehaviour
             if (body != null)
                 body.angularDrag = buildingAngularDrag;
         }
+
+        RefreshFulcrumVisuals();
+    }
+
+    void RefreshFulcrumVisuals()
+    {
+        float topWidth = settings.fulcrumTopWidth;
+        if (Mathf.Approximately(appliedFulcrumTopWidth, topWidth))
+            return;
+
+        appliedFulcrumTopWidth = topWidth;
+        Sprite sprite = ShapeUtil.Trapezoid(FulcrumColor, topWidth);
+        for (int i = 0; i < platforms.Count; i++)
+        {
+            WorldPlatform platform = platforms[i];
+            if (platform == null || platform.Fulcrum == null)
+                continue;
+            var renderer = platform.Fulcrum.GetComponent<SpriteRenderer>();
+            if (renderer != null)
+                renderer.sprite = sprite;
+        }
     }
 
     public bool SpendGold(int amount)
@@ -177,9 +201,9 @@ public class BalanceWorld : MonoBehaviour
         return true;
     }
 
-    public void AddGold(int amount)
+    public void AddGold(float amount)
     {
-        if (amount <= 0)
+        if (amount <= 0f)
             return;
         Gold += amount;
     }
@@ -213,6 +237,33 @@ public class BalanceWorld : MonoBehaviour
         if (level != null)
             return level.playerBuildings;
         return CSVLoader.Instance.playerBuildingList;
+    }
+
+    public bool IsNewThisLevel(BuildingInfo info)
+    {
+        if (info == null || string.IsNullOrEmpty(info.identifier))
+            return false;
+
+        var tutorial = GetComponent<TutorialManager>();
+        if (tutorial != null && tutorial.IsNewlyAdded(info.identifier))
+            return true;
+
+        var list = CSVLoader.Instance.levelList;
+        if (list == null || levelIndex <= 0 || levelIndex >= list.Count)
+            return false;
+
+        LevelInfo prev = list[levelIndex - 1];
+        if (prev == null || prev.playerBuildings == null)
+            return true;
+
+        for (int i = 0; i < prev.playerBuildings.Count; i++)
+        {
+            BuildingInfo building = prev.playerBuildings[i];
+            if (building != null && building.identifier == info.identifier)
+                return false;
+        }
+
+        return true;
     }
 
     public void GoToNextLevel()
@@ -269,6 +320,7 @@ public class BalanceWorld : MonoBehaviour
         SetTutorialPaused(false);
         SetPaused(false);
         Projectile.ClearAll();
+        ItemFx.ClearAll();
     }
 
     void TickGold()
@@ -308,6 +360,7 @@ public class BalanceWorld : MonoBehaviour
         showAllClearPopup = false;
         IsRestarting = true;
         Projectile.ClearAll();
+        ItemFx.ClearAll();
         Enemy.ClearAll();
 
         Building[] buildings = FindObjectsOfType<Building>();
@@ -586,14 +639,17 @@ public class BalanceWorld : MonoBehaviour
 
     GameObject CreateFulcrum(Vector3 boardPos)
     {
+        float boardHalf = (settings != null ? settings.boardHeight : 0.35f) * 0.5f;
         var fulcrum = new GameObject("Fulcrum");
         fulcrum.transform.SetParent(transform);
-        fulcrum.transform.position = new Vector3(boardPos.x, boardPos.y - 0.55f, 0f);
-        fulcrum.transform.localScale = new Vector3(1.1f, 1.1f, 1f);
+        fulcrum.transform.position = new Vector3(boardPos.x, boardPos.y - boardHalf, 0f);
+        fulcrum.transform.localScale = new Vector3(FulcrumScale, FulcrumScale, 1f);
 
         var renderer = fulcrum.AddComponent<SpriteRenderer>();
-        renderer.sprite = ShapeUtil.Triangle(new Color(0.18f, 0.18f, 0.2f));
+        float topWidth = settings != null ? settings.fulcrumTopWidth : 0.1f;
+        renderer.sprite = ShapeUtil.Trapezoid(FulcrumColor, topWidth);
         renderer.sortingOrder = -1;
+        appliedFulcrumTopWidth = topWidth;
         return fulcrum;
     }
 
@@ -693,7 +749,8 @@ public class BalanceWorld : MonoBehaviour
         };
         hintStyle.normal.textColor = Color.black;
         hintStyle.hover.textColor = Color.black;
-        GUI.Label(new Rect(8f, 8f, 480f, 28f), "Ctrl: show/hide resources", hintStyle);
+        GUI.Label(new Rect(8f, 8f, 520f, 78f),
+            "Ctrl: show/hide resources\nScroll: zoom in/out\nSpace: pause", hintStyle);
 
         LevelInfo level = CurrentLevel;
         if (level != null && !string.IsNullOrEmpty(level.name))
@@ -887,6 +944,30 @@ public static class ShapeUtil
         tex.Apply();
         tex.wrapMode = TextureWrapMode.Clamp;
         return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
+    }
+
+    public static Sprite Trapezoid(Color color, float topWidth = 0.1f)
+    {
+        const int size = 64;
+        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        float topHalf = Mathf.Clamp01(topWidth) * 0.5f;
+        const float bottomHalf = 0.5f;
+        for (int y = 0; y < size; y++)
+        {
+            float t = (y + 0.5f) / size;
+            float half = Mathf.Lerp(bottomHalf, topHalf, t);
+            for (int x = 0; x < size; x++)
+            {
+                float nx = (x + 0.5f) / size;
+                bool inside = nx >= 0.5f - half && nx <= 0.5f + half;
+                tex.SetPixel(x, y, inside ? color : Color.clear);
+            }
+        }
+
+        tex.Apply();
+        tex.wrapMode = TextureWrapMode.Clamp;
+        return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 1f), size);
     }
 
     public static Sprite Hexagon(Color color)

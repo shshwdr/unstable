@@ -1,23 +1,25 @@
 identifier,text,isEnd,startAction,waitToFinish
-start,"In this game, you need to carefully balance the buildings on this unstable board and survive rounds of enemies.",,hideDestroyButton|hideEncounter,
-,"Place core on the board, I'd suggest put in the middle, but you can place anywhere as long as it's on the board",,,
-,Place core on the board,,,build_core
-,"You can click and drop a building, or use the number key to select and place a building.",,addBuilding_electricity,
-,You can right click to cancel a selection of current building,,,
-,"Place electricity building on the board, try to balance the board. ",,,build_electricity
-,You can add mine now. Remember mine building need to place near electricity and the rock resource to work,,addBuilding_mine,
-,Place mine on the board and make sure it works.,,,build_mine
-,"Later there will be enemies trying to attack you, place some buildings to fight back.",,addBuilding_attack|addBuilding_wall,
-,"attack building can shoot the enemy, but it needs to consume ores created by mine. Walls have more hp that can protect other buildings.",,,
-,Place attack building and wall on the board.,,,build_attack|build_wall
-,"You can also destory building by pressing 0 or click on the last destory building button, and select the builidng you want to destory",,addDestoryButton,
-,Destroy a building,,,destoryBuilding
-,The enemy arrives! Try build more buildings ,,addEncounter,
-,You can click on the spawn point to speed up the encounter and earn some money too.,,,
-,But make sure you are ready to attack them when you do that!,,,
-,Prepare for the enemies and press the spawn point when you are ready,,,killEnemy
-,That's everything you need to know! You can stay in this level or press enter to finish the level.,,,
-,You can also press space to pause/unpause the game,,,
-,And ctrl to hide/show resources stock in buildings,1,,
-level2,You can hover over buildings to check its ability before placing the core,,,
-,You can also scroll to zoom out/zoom in the battleField,1,,
+start,"Balance cookware on this unstable board, bake bread, and survive waves of enemies.",,hideDestroyButton|hideEncounter,
+,"Place the Fridge on the board. The middle is safest, but anywhere on the board works.",,,
+,Place the Fridge on the board.,,,build_core
+,"Click a button to pick cookware, then click the board to place it. You can also press number keys to select.",,addBuilding_electricity,
+,Right-click to cancel the current selection.,,,
+,"Place the Generator on the board, and try to keep the board balanced.",,,build_electricity
+,The Generator makes electricity and stores it. Later cookware needs power to work.,,,
+,You can add a Grain Grinder now. Place it near electricity and Wheat so it can make flour.,,addBuilding_mine,
+,Place the Grain Grinder on the board and make sure it is working.,,,build_mine
+,Enemies will attack later. Place some cookware that can fight back.,,addBuilding_attack|addBuilding_wall,
+,"The Oven bakes flour into bread and shoots enemies, but it consumes flour from the Grain Grinder.",,,
+,The Cutting Board has more HP and can protect other cookware.,,,
+,Place the Oven and the Cutting Board on the board.,,,build_attack|build_wall
+,"Press 0, or click the Destroy button, then select the cookware you want to remove.",,addDestoryButton,
+,Destroy a piece of cookware.,,,destoryBuilding
+,Enemies are coming! Try building more cookware.,,addEncounter,
+,Click the spawn point to speed up the wave and earn extra coins.,,,
+,Just make sure you are ready to fight when you do that!,,,
+,"Prepare for the enemies, then click the spawn point when you are ready.",,,killEnemy
+,"That's everything you need to know! Stay in this level, or press Enter to finish.",,,
+,Press Space to pause or unpause.,,,
+,Press Ctrl to hide or show resource stock on cookware.,1,,
+level2,Hover over cookware to check what it does before you place the Fridge.,,,
+,Scroll to zoom the view in and out.,1,,
