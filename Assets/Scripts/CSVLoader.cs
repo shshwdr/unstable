@@ -22,7 +22,6 @@ public class BuildingInfo
     public string requireResource;
     public List<string> provide;
     public float cd;
-    public List<float> shape;
     public float scale;
     public float radius;
     public float hp;
@@ -38,13 +37,7 @@ public class BuildingInfo
 
     public Vector2 Size
     {
-        get
-        {
-            float w = shape != null && shape.Count > 0 ? shape[0] : 1f;
-            float h = shape != null && shape.Count > 1 ? shape[1] : w;
-            float s = scale > 0f ? scale : 1f;
-            return new Vector2(w * s, h * s);
-        }
+        get { return BuildingArt.WorldSize(this); }
     }
 
     public bool IsCore

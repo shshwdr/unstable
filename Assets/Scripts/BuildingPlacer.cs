@@ -332,7 +332,7 @@ public class BuildingPlacer : MonoBehaviour
 
         Sprite sprite = BuildingArt.ResolveSprite(info, Color.white, false);
         ghostRenderer.sprite = sprite;
-        Vector2 scale = BuildingArt.VisualScale(info, sprite);
+        Vector2 scale = BuildingArt.VisualScale(info);
         ghostVisual.localScale = new Vector3(scale.x, scale.y, 1f);
         ghostName.text = info.name;
         SetCircle(info.radius);
@@ -821,7 +821,7 @@ public class BuildingPlacer : MonoBehaviour
         go.transform.position = position;
 
         Sprite sprite = BuildingArt.ResolveSprite(info, ColorFor(info.type), false);
-        Vector2 scale = BuildingArt.VisualScale(info, sprite);
+        Vector2 scale = BuildingArt.VisualScale(info);
         Bounds phys = BuildingArt.PhysicsLocalBounds(sprite, scale, info);
 
         var visual = new GameObject("Visual");
@@ -859,7 +859,7 @@ public class BuildingPlacer : MonoBehaviour
             return null;
 
         Sprite sprite = BuildingArt.ResolveSprite(info, ColorFor(info.type), true);
-        Vector2 scale = BuildingArt.VisualScale(info, sprite);
+        Vector2 scale = BuildingArt.VisualScale(info);
         Bounds phys = BuildingArt.PhysicsLocalBounds(sprite, scale, info);
 
         var go = new GameObject(info.name);

@@ -1,3 +1,6 @@
-identifier,name,buildings
-1,Tutorial,
-1,Floating Island,core|electricity|mine|attack|wall
+identifier,name,buildings,platform,mines,minesDesc
+1,Tutorial,,balance_b1_0_-2.5_20,rock_b1_left|rock_b1_right,two rocks on board
+2,Balance,electricity|mine|attack|wall|buffTower,balance_b1_0_-2.5_20,rock_b1_left|rock_b1_right,two rocks on board
+3,Floating Island,mine|attack|wall|sunElectricity|buffTower,island_boardLeftUp,rock_boardLeft|rock_island,"one rock on board left, one floating island above board right with a rock on it"
+4,Short on Money,mixer|cheeseAttack|wall|sunElectricity|coinMachine,,rightCowLeftIslandWithCow,"one cow on board right, one floating island above board left with a cow on it"
+5,More Balance,,balance_boardLeftUp,twoBalance,

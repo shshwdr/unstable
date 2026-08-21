@@ -899,23 +899,33 @@ public static class BuildingArt
         return hexagon ? ShapeUtil.Hexagon(fallbackColor) : ShapeUtil.Square(fallbackColor);
     }
 
-    public static Vector2 VisualScale(BuildingInfo info, Sprite sprite)
+    public static float UniformScale(BuildingInfo info)
     {
-        Vector2 shape = info != null ? info.Size : Vector2.one;
+        return info != null && info.scale > 0f ? info.scale : 1f;
+    }
+
+    public static Vector2 WorldSize(BuildingInfo info)
+    {
+        float s = UniformScale(info);
+        Sprite sprite = LoadSprite(info);
         if (sprite == null)
-            return shape;
+            return new Vector2(s, s);
 
         Vector2 spriteSize = sprite.bounds.size;
-        return new Vector2(
-            spriteSize.x > 0.0001f ? shape.x / spriteSize.x : shape.x,
-            spriteSize.y > 0.0001f ? shape.y / spriteSize.y : shape.y);
+        return new Vector2(spriteSize.x * s, spriteSize.y * s);
+    }
+
+    public static Vector2 VisualScale(BuildingInfo info)
+    {
+        float s = UniformScale(info);
+        return new Vector2(s, s);
     }
 
     public static Bounds PhysicsLocalBounds(BuildingInfo info)
     {
         bool hexagon = info != null && info.IsResource;
         Sprite sprite = ResolveSprite(info, Color.white, hexagon);
-        return PhysicsLocalBounds(sprite, VisualScale(info, sprite), info);
+        return PhysicsLocalBounds(sprite, VisualScale(info), info);
     }
 
     public static Bounds PhysicsLocalBounds(Sprite sprite, Vector2 scale, BuildingInfo info)
@@ -924,8 +934,19 @@ public static class BuildingArt
         if (TryPhysicsShapeBounds(sprite, scale, out shapeBounds))
             return shapeBounds;
 
-        Vector2 size = info != null ? info.Size : Vector2.one;
-        return new Bounds(Vector3.zero, new Vector3(size.x, size.y, 0f));
+        if (sprite != null)
+        {
+            Vector3 size = sprite.bounds.size;
+            size.x *= scale.x;
+            size.y *= scale.y;
+            Vector3 center = sprite.bounds.center;
+            center.x *= scale.x;
+            center.y *= scale.y;
+            return new Bounds(center, size);
+        }
+
+        Vector2 sizeFallback = info != null ? WorldSize(info) : Vector2.one;
+        return new Bounds(Vector3.zero, new Vector3(sizeFallback.x, sizeFallback.y, 0f));
     }
 
     public static Collider2D AddCollider(GameObject go, Sprite sprite, Vector2 scale, BuildingInfo info, PhysicsMaterial2D material)
@@ -948,9 +969,17 @@ public static class BuildingArt
             return poly;
         }
 
-        Vector2 size = info != null ? info.Size : Vector2.one;
         var box = go.AddComponent<BoxCollider2D>();
-        box.size = size;
+        if (sprite != null)
+        {
+            Vector2 size = sprite.bounds.size;
+            box.size = new Vector2(size.x * scale.x, size.y * scale.y);
+            box.offset = new Vector2(sprite.bounds.center.x * scale.x, sprite.bounds.center.y * scale.y);
+        }
+        else
+        {
+            box.size = info != null ? WorldSize(info) : Vector2.one;
+        }
         box.sharedMaterial = material;
         return box;
     }
