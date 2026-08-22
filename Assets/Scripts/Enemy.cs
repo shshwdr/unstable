@@ -68,7 +68,6 @@ public class Enemy : MonoBehaviour
         {
             Vector2 size = info.Size * scaleMul;
             SetupMeleePhysics(size);
-            IgnoreResourceColliders();
             IgnoreOtherMeleeColliders();
             Health = gameObject.AddComponent<Health>();
             Health.Init(info.hp, new Vector3(0f, size.y * 0.5f + 0.28f, 0f), EnemyHpColor);
@@ -123,24 +122,6 @@ public class Enemy : MonoBehaviour
         var box = gameObject.AddComponent<BoxCollider2D>();
         box.size = size;
         box.sharedMaterial = world.SharedMaterial;
-    }
-
-    void IgnoreResourceColliders()
-    {
-        var col = GetComponent<Collider2D>();
-        if (col == null)
-            return;
-
-        for (int i = 0; i < Building.All.Count; i++)
-        {
-            Building resource = Building.All[i];
-            if (resource == null || !resource.IsResource)
-                continue;
-
-            var other = resource.GetComponent<Collider2D>();
-            if (other != null)
-                Physics2D.IgnoreCollision(col, other);
-        }
     }
 
     void IgnoreOtherMeleeColliders()

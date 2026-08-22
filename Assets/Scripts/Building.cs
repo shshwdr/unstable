@@ -155,6 +155,34 @@ public class Building : MonoBehaviour
         RefreshCdFill();
     }
 
+    void OnCollisionStay2D(Collision2D collision)
+    {
+        AbsorbMeleeImpulse(collision);
+    }
+
+    void AbsorbMeleeImpulse(Collision2D collision)
+    {
+        if (IsResource || collision == null)
+            return;
+
+        Enemy enemy = collision.gameObject.GetComponent<Enemy>();
+        if (enemy == null || !enemy.IsMelee)
+            return;
+
+        var rb = GetComponent<Rigidbody2D>();
+        if (rb == null)
+            return;
+
+        int count = collision.contactCount;
+        for (int i = 0; i < count; i++)
+        {
+            ContactPoint2D contact = collision.GetContact(i);
+            Vector2 tangent = new Vector2(-contact.normal.y, contact.normal.x);
+            Vector2 impulse = contact.normal * contact.normalImpulse + tangent * contact.tangentImpulse;
+            rb.AddForce(-impulse, ForceMode2D.Impulse);
+        }
+    }
+
     public int GetStock(string resource)
     {
         int amount;
