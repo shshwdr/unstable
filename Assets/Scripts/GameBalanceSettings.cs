@@ -38,6 +38,14 @@ public class GameBalanceSettings : ScriptableObject
     [Header("敌人")]
     [Tooltip("进入攻击后，与更早生成的敌人保持的间距。")]
     public float enemyAttackSpacing = 0.3f;
+    [Tooltip("敌人在生成点周围出现的半径。")]
+    public float enemySpawnRadius = 1f;
+    [Tooltip("敌人视觉与碰撞大小倍率。")]
+    public float enemyScale = 2f;
+
+    [Header("战斗")]
+    [Tooltip("投掷物视觉大小倍率。")]
+    public float projectileScale = 1.5f;
 
     [Header("摄像机")]
     [Tooltip("初始视野大小（正交尺寸），数值越小看得越近。")]

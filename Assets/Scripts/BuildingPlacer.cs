@@ -31,7 +31,6 @@ public class BuildingPlacer : MonoBehaviour
     int usedArrows;
     Sprite demolishIcon;
     Sprite goldIcon;
-    Texture2D goldTexture;
     int newBadgeLevel = -1;
     readonly HashSet<string> seenNewBuildings = new HashSet<string>();
 
@@ -400,7 +399,7 @@ public class BuildingPlacer : MonoBehaviour
         {
             if (sb.Length > 0)
                 sb.Append('\n');
-            sb.Append("Need ").Append(info.requireResource);
+            sb.Append("Need ").Append(BuildingInfo.DisplayName(info.requireResource));
         }
         if (Building.IsTopBlockedAt(position, info))
         {
@@ -491,7 +490,9 @@ public class BuildingPlacer : MonoBehaviour
         bool canGive = info.radius > 0f && info.HasProvideDisplay;
         bool canTake = info.HasConsumeDisplay;
         bool canTakeNode = !string.IsNullOrEmpty(info.requireResource);
-        if (!canGive && !canTake && !canTakeNode)
+        bool canTakeAttackStock = info.IsCoinMachine && info.radius > 0f;
+        bool canGiveAttackStock = info.IsAttack;
+        if (!canGive && !canTake && !canTakeNode && !canTakeAttackStock && !canGiveAttackStock)
         {
             HideUnusedArrows();
             return;
@@ -502,6 +503,8 @@ public class BuildingPlacer : MonoBehaviour
             Building other = Building.All[i];
             if (other == null || other == source || other.Info == null)
                 continue;
+            if (other.Health != null && !other.Health.IsAlive)
+                continue;
 
             float dist = Vector2.Distance(origin, other.transform.position);
             bool give = canGive && dist <= info.radius &&
@@ -510,15 +513,18 @@ public class BuildingPlacer : MonoBehaviour
                 BuildingInfo.ResourceListsOverlap(other.Info.ProvideList, info.ConsumeList);
             bool takeNode = canTakeNode && other.IsResource && other.Info.identifier == info.requireResource &&
                 other.Info.radius > 0f && dist <= other.Info.radius;
-            if (!give && !take && !takeNode)
+            bool takeAttack = canTakeAttackStock && other.Info.IsAttack && dist <= info.radius;
+            bool giveAttack = canGiveAttackStock && other.Info.IsCoinMachine && other.Info.radius > 0f &&
+                dist <= other.Info.radius;
+            if (!give && !take && !takeNode && !takeAttack && !giveAttack)
                 continue;
 
             other.SetLinkPulse(true);
             highlighted.Add(other);
 
-            if (give)
+            if (give || giveAttack)
                 AddArrow(origin, other.transform.position, GiveArrowColor, 0.08f);
-            if (take || takeNode)
+            if (take || takeNode || takeAttack)
                 AddArrow(other.transform.position, origin, TakeArrowColor, -0.08f);
         }
 
@@ -1161,8 +1167,10 @@ public class BuildingPlacer : MonoBehaviour
 
     void DrawBuildBar()
     {
-        float btnH = 196f;
-        float barY = Screen.height - 212f;
+        float btnH = 230f;
+        float barY = Screen.height - 16f - btnH;
+        float goldH = 56f;
+        float goldY = barY - goldH - 8f;
         var goldStyle = new GUIStyle(GUI.skin.label)
         {
             fontSize = 36,
@@ -1170,14 +1178,14 @@ public class BuildingPlacer : MonoBehaviour
         };
         goldStyle.normal.textColor = Color.black;
         goldStyle.hover.textColor = Color.black;
-        DrawGoldAmount(new Rect(16f, barY + 24f, 280f, 56f), world.DisplayGold, goldStyle, 40f);
+        DrawGoldAmount(new Rect(16f, goldY, 280f, goldH), world.DisplayGold, goldStyle, 40f);
 
         var list = BuildableList();
         bool coreExists = Building.CoreExists();
         int buildCount = list != null ? list.Count : 0;
         if (!coreExists && buildCount <= 0)
         {
-            barRect = new Rect(0f, Screen.height - 220f, Screen.width, 220f);
+            barRect = new Rect(0f, goldY - 8f, Screen.width, Screen.height - (goldY - 8f));
             buttonRects = null;
             var hotStyle = new GUIStyle(GUI.skin.label)
             {
@@ -1195,29 +1203,28 @@ public class BuildingPlacer : MonoBehaviour
         int n = buildCount + (showDestroy ? 1 : 0);
         if (n <= 0)
         {
-            barRect = new Rect(0f, barY - 8f, Screen.width, btnH + 16f);
+            barRect = new Rect(0f, goldY - 8f, Screen.width, Screen.height - (goldY - 8f));
             buttonRects = null;
             return;
         }
         float gap = 8f;
-        float left = 220f;
-        float right = 480f;
-        float areaW = Mathf.Max(200f, Screen.width - left - right);
-        float btnW = Mathf.Clamp((areaW - gap * (n - 1)) / n, 160f, 280f);
+        float sidePad = 24f;
+        float areaW = Mathf.Max(200f, Screen.width - sidePad * 2f);
+        float btnW = Mathf.Clamp((areaW - gap * (n - 1)) / n, 160f, 280f) * 0.9f;
         float total = n * btnW + (n - 1) * gap;
-        float startX = left + Mathf.Max(0f, areaW - total) * 0.5f;
+        float startX = (Screen.width - total) * 0.5f;
 
-        barRect = new Rect(0f, barY - 8f, Screen.width, btnH + 16f);
+        barRect = new Rect(0f, goldY - 8f, Screen.width, Screen.height - (goldY - 8f));
         if (buttonRects == null || buttonRects.Length != n)
             buttonRects = new Rect[n];
 
         var btnStyle = WhiteButtonStyle();
         var captionStyle = new GUIStyle(GUI.skin.label)
         {
-            fontSize = 28,
+            fontSize = 24,
             fontStyle = FontStyle.Bold,
             alignment = TextAnchor.MiddleCenter,
-            wordWrap = false
+            wordWrap = true
         };
         captionStyle.normal.textColor = Color.black;
         captionStyle.hover.textColor = Color.black;
@@ -1288,7 +1295,8 @@ public class BuildingPlacer : MonoBehaviour
             };
             hintStyle.normal.textColor = Color.black;
             hintStyle.hover.textColor = Color.black;
-            GUI.Label(new Rect(0f, barY - 40f, Screen.width, 36f), "Place Core", hintStyle);
+            GUI.Label(new Rect(0f, goldY - 40f, Screen.width, 36f), "Place Core", hintStyle);
+            barRect = new Rect(0f, goldY - 48f, Screen.width, Screen.height - (goldY - 48f));
         }
     }
 
@@ -1312,7 +1320,8 @@ public class BuildingPlacer : MonoBehaviour
     void DrawNameAndCost(Rect rect, string name, int cost, GUIStyle nameStyle)
     {
         nameStyle.alignment = TextAnchor.MiddleCenter;
-        float nameH = 34f;
+        nameStyle.wordWrap = true;
+        float nameH = 68f;
         GUI.Label(new Rect(rect.x, rect.y, rect.width, nameH), name, nameStyle);
 
         var costStyle = new GUIStyle(nameStyle)
@@ -1342,7 +1351,7 @@ public class BuildingPlacer : MonoBehaviour
     Sprite GoldIcon()
     {
         if (goldIcon == null)
-            goldIcon = Resources.Load<Sprite>("gold");
+            goldIcon = ItemArt.Load("coin");
         return goldIcon;
     }
 
@@ -1350,15 +1359,7 @@ public class BuildingPlacer : MonoBehaviour
     {
         Sprite sprite = GoldIcon();
         if (sprite != null)
-        {
             DrawSprite(rect, sprite);
-            return;
-        }
-
-        if (goldTexture == null)
-            goldTexture = Resources.Load<Texture2D>("gold");
-        if (goldTexture != null)
-            GUI.DrawTexture(rect, goldTexture, ScaleMode.ScaleToFit, true);
     }
 
     Sprite DemolishIcon()

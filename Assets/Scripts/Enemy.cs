@@ -22,6 +22,7 @@ public class Enemy : MonoBehaviour
 
     const float SlowMul = 0.5f;
     static readonly Color SlowColor = new Color(0.25f, 0.55f, 1f);
+    static readonly Color EnemyHpColor = new Color(0.9f, 0.22f, 0.22f, 1f);
 
     public bool IsMelee
     {
@@ -60,24 +61,54 @@ public class Enemy : MonoBehaviour
 
         visualRenderer = visual.gameObject.AddComponent<SpriteRenderer>();
         visualRenderer.sortingOrder = 10;
+        float scaleMul = EnemyScale();
+        ApplyVisual(info, scaleMul);
 
         if (info.isMelee)
         {
-            Vector2 size = info.Size;
-            visual.localScale = new Vector3(size.x, size.y, 1f);
-            visualRenderer.sprite = ShapeUtil.Square(ColorFor(info.identifier));
+            Vector2 size = info.Size * scaleMul;
             SetupMeleePhysics(size);
             IgnoreResourceColliders();
             IgnoreOtherMeleeColliders();
             Health = gameObject.AddComponent<Health>();
-            Health.Init(info.hp, new Vector3(0f, size.y * 0.5f + 0.28f, 0f));
+            Health.Init(info.hp, new Vector3(0f, size.y * 0.5f + 0.28f, 0f), EnemyHpColor);
             return;
         }
 
-        visual.localScale = new Vector3(0.45f, 0.45f, 1f);
-        visualRenderer.sprite = ShapeUtil.Triangle(ColorFor(info.identifier));
         Health = gameObject.AddComponent<Health>();
-        Health.Init(info.hp, new Vector3(0f, 0.45f, 0f));
+        Health.Init(info.hp, new Vector3(0f, 0.45f * scaleMul, 0f), EnemyHpColor);
+    }
+
+    float EnemyScale()
+    {
+        if (world != null && world.settings != null && world.settings.enemyScale > 0f)
+            return world.settings.enemyScale;
+        return 2f;
+    }
+
+    void ApplyVisual(EnemyInfo info, float scaleMul)
+    {
+        Sprite sprite = EnemyArt.Load(info.identifier);
+        if (sprite != null)
+        {
+            visualRenderer.sprite = sprite;
+            float worldSize = (info.isMelee ? Mathf.Max(info.Size.x, info.Size.y) : 0.45f) * scaleMul;
+            float scale = ItemArt.FitScale(sprite, worldSize);
+            visual.localScale = new Vector3(scale, scale, 1f);
+            return;
+        }
+
+        if (info.isMelee)
+        {
+            Vector2 size = info.Size * scaleMul;
+            visual.localScale = new Vector3(size.x, size.y, 1f);
+            visualRenderer.sprite = ShapeUtil.Square(ColorFor(info.identifier));
+            return;
+        }
+
+        float fallback = 0.45f * scaleMul;
+        visual.localScale = new Vector3(fallback, fallback, 1f);
+        visualRenderer.sprite = ShapeUtil.Triangle(ColorFor(info.identifier));
     }
 
     void SetupMeleePhysics(Vector2 size)
@@ -153,6 +184,8 @@ public class Enemy : MonoBehaviour
         else
             TickRanged();
 
+        UpdateFacing();
+
         if (Info.isMelee)
             CheckFellOff();
     }
@@ -202,7 +235,6 @@ public class Enemy : MonoBehaviour
         RefreshAttackTarget();
         if (attackTarget != null)
         {
-            Face(attackTarget.transform.position - transform.position);
             TryShoot(attackTarget);
             SeparateRanged();
             return;
@@ -213,7 +245,6 @@ public class Enemy : MonoBehaviour
             return;
 
         Vector3 delta = target.transform.position - transform.position;
-        Face(delta);
         transform.position += delta.normalized * CurrentSpeed() * Time.deltaTime;
     }
 
@@ -254,14 +285,41 @@ public class Enemy : MonoBehaviour
         Projectile.Fire(transform.position, target.Health, Info.attack, new Color(1f, 0.35f, 0.2f));
     }
 
-    void Face(Vector3 delta)
+    void UpdateFacing()
     {
-        if (visual == null || delta.sqrMagnitude <= 0.0001f)
-            return;
-        if (Info.isMelee)
+        Building target = attackTarget;
+        if (target == null)
+        {
+            if (Info.isMelee)
+            {
+                target = Building.FindCore();
+                if (target == null || !target.CanBeAttacked)
+                    target = Building.FindClosestAttackable(transform.position);
+            }
+            else
+                target = Building.FindClosestAttackable(transform.position);
+        }
+
+        if (target == null)
             return;
 
-        float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg - 90f;
+        Face(target.transform.position - transform.position);
+    }
+
+    void Face(Vector3 delta)
+    {
+        if (visual == null || visualRenderer == null || delta.sqrMagnitude <= 0.0001f)
+            return;
+
+        if (Info.isMelee)
+        {
+            visual.localRotation = Quaternion.identity;
+            visualRenderer.flipX = delta.x < 0f;
+            return;
+        }
+
+        visualRenderer.flipX = false;
+        float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
         visual.rotation = Quaternion.Euler(0f, 0f, angle);
     }
 
@@ -439,13 +497,8 @@ public class Enemy : MonoBehaviour
     public void ApplySlow()
     {
         slowed = true;
-        if (visualRenderer == null || Info == null)
-            return;
-
-        visualRenderer.sprite = Info.isMelee
-            ? ShapeUtil.Square(SlowColor)
-            : ShapeUtil.Triangle(SlowColor);
-        visualRenderer.color = Color.white;
+        if (visualRenderer != null)
+            visualRenderer.color = SlowColor;
     }
 
     float CurrentSpeed()
@@ -467,5 +520,41 @@ public class Enemy : MonoBehaviour
             case "melee": return new Color(0.42f, 0.08f, 0.12f);
             default: return new Color(0.65f, 0.2f, 0.45f);
         }
+    }
+}
+
+public static class EnemyArt
+{
+    const string ResourceFolder = "enemy/";
+    static readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
+    static readonly HashSet<string> missingSprites = new HashSet<string>();
+
+    public static Sprite Load(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return null;
+
+        Sprite sprite;
+        if (spriteCache.TryGetValue(identifier, out sprite))
+            return sprite;
+        if (missingSprites.Contains(identifier))
+            return null;
+
+        sprite = Resources.Load<Sprite>(ResourceFolder + identifier);
+        if (sprite == null)
+        {
+            Texture2D tex = Resources.Load<Texture2D>(ResourceFolder + identifier);
+            if (tex != null)
+                sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        if (sprite == null)
+        {
+            missingSprites.Add(identifier);
+            return null;
+        }
+
+        spriteCache[identifier] = sprite;
+        return sprite;
     }
 }

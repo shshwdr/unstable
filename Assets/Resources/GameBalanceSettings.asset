@@ -18,18 +18,21 @@ MonoBehaviour:
   buildingDensity: 1.4
   buildingAngularDrag: 2
   boardHeight: 0.35
-  boardMass: 100
-  boardAngularDrag: 1
+  boardMass: 200
+  boardAngularDrag: 2
   fulcrumTopWidth: 0.05
-  restoreAngle: 20
-  restoreStrength: 5
+  restoreAngle: 90
+  restoreStrength: 20
   restoreDamping: 0
   overlapPush: 0.12
-  failOnTilt: 1
+  failOnTilt: 0
   failAngle: 45
   failHoldSeconds: 1.2
-  enemyAttackSpacing: 0.3
+  enemyAttackSpacing: 0.5
+  enemySpawnRadius: 1
+  enemyScale: 2
+  projectileScale: 1.5
   cameraSize: 8
-  cameraZoomMin: 3
+  cameraZoomMin: 8
   cameraZoomMax: 16
-  cameraZoomSpeed: 1.2
+  cameraZoomSpeed: 1

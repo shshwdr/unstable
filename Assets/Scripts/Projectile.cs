@@ -42,18 +42,19 @@ public class Projectile : MonoBehaviour
         renderer.sortingOrder = 12;
 
         Sprite itemSprite = ItemArt.Load(ItemArt.PrimaryItemId(info));
+        float scaleMul = ProjectileScale();
         if (itemSprite != null)
         {
             renderer.sprite = itemSprite;
-            float size = aoe ? 0.5f : 0.38f;
+            float size = (aoe ? 0.5f : 0.38f) * scaleMul;
             float scale = ItemArt.FitScale(itemSprite, size);
             visualGo.transform.localScale = new Vector3(scale, scale, 1f);
         }
         else
         {
             visualGo.transform.localScale = aoe
-                ? new Vector3(0.42f, 0.22f, 1f)
-                : new Vector3(0.18f, 0.18f, 1f);
+                ? new Vector3(0.42f * scaleMul, 0.22f * scaleMul, 1f)
+                : new Vector3(0.18f * scaleMul, 0.18f * scaleMul, 1f);
             renderer.sprite = ShapeUtil.Square(color);
         }
 
@@ -85,6 +86,14 @@ public class Projectile : MonoBehaviour
         }
 
         All.Clear();
+    }
+
+    static float ProjectileScale()
+    {
+        var world = Object.FindObjectOfType<BalanceWorld>();
+        if (world == null || world.settings == null || world.settings.projectileScale <= 0f)
+            return 1.5f;
+        return world.settings.projectileScale;
     }
 
     void OnEnable()

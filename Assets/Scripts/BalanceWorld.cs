@@ -93,18 +93,20 @@ public class BalanceWorld : MonoBehaviour
             Restart();
 
         bool enter = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
-        if (!blocked && enter && !showAllClearPopup)
+        if (!blocked && enter)
         {
-            bool canFinish = IsVictory || (!IsGameOver && tutorial != null && tutorial.AllowEnterToFinish);
-            if (canFinish)
+            if (IsVictory && HasNextLevel)
             {
-                if (HasNextLevel)
-                {
-                    GoToNextLevel();
-                    return;
-                }
-                if (IsVictory)
-                    showAllClearPopup = true;
+                GoToNextLevel();
+                return;
+            }
+
+            bool tutorialFinish = !showAllClearPopup && !IsGameOver
+                && tutorial != null && tutorial.AllowEnterToFinish;
+            if (tutorialFinish && HasNextLevel)
+            {
+                GoToNextLevel();
+                return;
             }
         }
 
@@ -348,7 +350,7 @@ public class BalanceWorld : MonoBehaviour
             return;
 
         IsVictory = true;
-        showAllClearPopup = false;
+        showAllClearPopup = true;
         SetTutorialPaused(false);
         SetPaused(false);
     }
@@ -786,24 +788,6 @@ public class BalanceWorld : MonoBehaviour
             return;
         }
 
-        if (IsVictory)
-        {
-            var nextStyle = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = 28,
-                fontStyle = FontStyle.Bold,
-                wordWrap = true
-            };
-            nextStyle.normal.textColor = Color.black;
-            nextStyle.hover.textColor = Color.black;
-            string hint = HasNextLevel
-                ? "All enemies cleared, press Enter to go to the next level"
-                : "All enemies cleared, press Enter";
-            GUI.Label(new Rect(40f, 52f, Screen.width - 80f, 70f), hint, nextStyle);
-            return;
-        }
-
         if (!IsGameOver)
             return;
 
@@ -832,42 +816,39 @@ public class BalanceWorld : MonoBehaviour
 
     void DrawAllClearPopup()
     {
-        float boxW = 520f;
-        float boxH = 240f;
+        float boxW = 560f;
+        float boxH = 200f;
         var box = new Rect((Screen.width - boxW) * 0.5f, Screen.height * 0.28f, boxW, boxH);
         GUI.Box(box, "");
 
         var title = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = 40,
-            fontStyle = FontStyle.Bold
-        };
-        title.normal.textColor = Color.white;
-        GUI.Label(new Rect(box.x, box.y + 18f, box.width, 50f), "Victory", title);
-
-        var sub = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = 22,
+            fontSize = 36,
+            fontStyle = FontStyle.Bold,
             wordWrap = true
         };
-        sub.normal.textColor = Color.white;
-        GUI.Label(new Rect(box.x + 20f, box.y + 72f, box.width - 40f, 50f),
-            "All levels complete", sub);
+        title.normal.textColor = Color.white;
+        GUI.Label(new Rect(box.x + 16f, box.y + 28f, box.width - 32f, 54f),
+            "All enemy cleared", title);
 
         var btn = new GUIStyle(GUI.skin.button)
         {
             fontSize = 20,
             fontStyle = FontStyle.Bold
         };
-        float btnW = 210f;
+        float btnW = 230f;
         float btnH = 48f;
         float btnY = box.y + boxH - 70f;
-        if (GUI.Button(new Rect(box.x + 30f, btnY, btnW, btnH), "Stay here", btn))
+        if (GUI.Button(new Rect(box.x + 30f, btnY, btnW, btnH), "Stay in this level", btn))
             showAllClearPopup = false;
-        if (GUI.Button(new Rect(box.x + box.width - 30f - btnW, btnY, btnW, btnH), "Restart last level", btn))
-            Restart();
+
+        bool wasEnabled = GUI.enabled;
+        GUI.enabled = HasNextLevel;
+        if (GUI.Button(new Rect(box.x + box.width - 30f - btnW, btnY, btnW, btnH), "Next level", btn)
+            && HasNextLevel)
+            GoToNextLevel();
+        GUI.enabled = wasEnabled;
     }
 }
 

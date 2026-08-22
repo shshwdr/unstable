@@ -1,5 +1,5 @@
 identifier,hp,attack,speed,attackCD,attackRange,isMelee,size,special
-normal,70,5,1,1,1,0,,
-speed,50,3,3,0.8,1,0,,
-melee,100,3,3,0.8,1,1,0.5|0.5,
-drop,150,3,3,0.8,1,0,,spawn_melee
+normal,60,5,1,1,1,0,,
+speed,40,3,3,0.8,1,0,,
+melee,60,3,3,0.8,1,1,0.5|0.5,
+drop,100,3,3,0.8,1,0,,spawn_melee

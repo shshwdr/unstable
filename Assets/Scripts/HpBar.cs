@@ -6,7 +6,7 @@ public class HpBar : MonoBehaviour
     ProgressBar progressBar;
     Text hpText;
 
-    public static HpBar Create(Transform owner, Vector3 localOffset)
+    public static HpBar Create(Transform owner, Vector3 localOffset, Color fillColor)
     {
         var root = new GameObject("HpBar");
         root.transform.SetParent(owner, false);
@@ -23,11 +23,11 @@ public class HpBar : MonoBehaviour
         rt.localScale = new Vector3(0.01f, 0.01f, 0.01f);
 
         var bar = root.AddComponent<HpBar>();
-        bar.Build();
+        bar.Build(fillColor);
         return bar;
     }
 
-    void Build()
+    void Build(Color fillColor)
     {
         var bg = CreateUiChild("Background", transform);
         var bgImage = bg.AddComponent<Image>();
@@ -39,7 +39,7 @@ public class HpBar : MonoBehaviour
         var fill = CreateUiChild("Fill", transform);
         var fillImage = fill.AddComponent<Image>();
         fillImage.sprite = ShapeUtil.WhiteSprite();
-        fillImage.color = new Color(0.25f, 0.85f, 0.35f, 1f);
+        fillImage.color = fillColor;
         fillImage.raycastTarget = false;
         fillImage.type = Image.Type.Filled;
         fillImage.fillMethod = Image.FillMethod.Horizontal;

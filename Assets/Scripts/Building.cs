@@ -16,7 +16,6 @@ public class Building : MonoBehaviour
     TextMesh infoText;
     Transform stockRoot;
     readonly List<BuildingStockRow> stockRows = new List<BuildingStockRow>();
-    readonly List<ResourceAmount> drainBuffer = new List<ResourceAmount>();
     TextMesh warningText;
     SpriteRenderer warningIcon;
     SpriteRenderer visualRenderer;
@@ -180,6 +179,27 @@ public class Building : MonoBehaviour
         foreach (var pair in stock)
             total += pair.Value;
         return total;
+    }
+
+    public bool TryTakeOneStock(out string itemId)
+    {
+        itemId = null;
+        string bestId = null;
+        int bestAmount = 0;
+        foreach (var pair in stock)
+        {
+            if (string.IsNullOrEmpty(pair.Key) || pair.Value <= bestAmount)
+                continue;
+            bestAmount = pair.Value;
+            bestId = pair.Key;
+        }
+
+        if (string.IsNullOrEmpty(bestId) || bestAmount <= 0)
+            return false;
+
+        AddStock(bestId, -1);
+        itemId = bestId;
+        return true;
     }
 
     public int TakeAllStock()
@@ -457,6 +477,8 @@ public class Building : MonoBehaviour
         Enemy target = FindEnemyInRange();
         if (target == null)
             return;
+        if (!TryConsumeAttackAmmo())
+            return;
 
         attackRemain = interval;
         Projectile.Fire(ItemWorldPos(), target.Health, Info.attack, AttackProjectileColor(), Info, transform);
@@ -469,6 +491,21 @@ public class Building : MonoBehaviour
         if (Info.HasSpecial("aoe"))
             return new Color(0.92f, 0.68f, 0.28f);
         return new Color(0.35f, 0.9f, 1f);
+    }
+
+    bool TryConsumeAttackAmmo()
+    {
+        string id = ItemArt.PrimaryItemId(Info);
+        if (string.IsNullOrEmpty(id) || GetStock(id) <= 0)
+            return false;
+
+        AddStock(id, -1);
+        return true;
+    }
+
+    public bool HasEnemyInAttackRange()
+    {
+        return Info != null && Info.CanAttack && FindEnemyInRange() != null;
     }
 
     bool TryConsume()
@@ -531,7 +568,23 @@ public class Building : MonoBehaviour
         if (Info.radius <= 0f)
             return false;
 
-        bool took = false;
+        Building source = FindRichestAttackStockInRange();
+        if (source == null)
+            return false;
+
+        string itemId;
+        if (!source.TryTakeOneStock(out itemId))
+            return false;
+
+        pendingCoinSale = source.Info.StockSellPrice;
+        ItemFx.Fly(itemId, source.ItemWorldPos(), transform, 1);
+        return true;
+    }
+
+    Building FindRichestAttackStockInRange()
+    {
+        Building best = null;
+        int bestAmount = 0;
         Vector2 pos = transform.position;
         for (int i = 0; i < All.Count; i++)
         {
@@ -540,23 +593,20 @@ public class Building : MonoBehaviour
                 continue;
             if (other.Health != null && !other.Health.IsAlive)
                 continue;
-
-            float dist = Vector2.Distance(pos, other.transform.position);
-            if (dist > Info.radius)
+            if (other.HasEnemyInAttackRange())
+                continue;
+            if (Info.radius > 0f && Vector2.Distance(pos, other.transform.position) > Info.radius)
                 continue;
 
-            int items = other.DrainStock(drainBuffer);
-            if (items <= 0)
+            int amount = other.TotalStock();
+            if (amount <= 0 || amount <= bestAmount)
                 continue;
 
-            pendingCoinSale += items * other.Info.StockSellPrice;
-            took = true;
-            Vector3 from = other.ItemWorldPos();
-            for (int s = 0; s < drainBuffer.Count; s++)
-                ItemFx.Fly(drainBuffer[s].id, from, transform, drainBuffer[s].amount);
+            bestAmount = amount;
+            best = other;
         }
 
-        return took;
+        return best;
     }
 
     Building FindRichestCovering(string resource, int need)
@@ -688,8 +738,8 @@ public class Building : MonoBehaviour
                 : "\nSpecial: keep the top clear");
         if (!string.IsNullOrEmpty(info.requireResource))
             sb.Append(runtime != null && !runtime.InRequiredResourceRange()
-                ? "\nBlocked: needs " + info.requireResource
-                : "\nNeeds " + info.requireResource);
+                ? "\nBlocked: needs " + BuildingInfo.DisplayName(info.requireResource)
+                : "\nNeeds " + BuildingInfo.DisplayName(info.requireResource));
         return sb.ToString();
     }
 
@@ -771,7 +821,7 @@ public class Building : MonoBehaviour
         if (IsBlockedByTop())
             labelBuilder.Append("Keep the top clear to work");
         else if (!InRequiredResourceRange())
-            labelBuilder.Append("Need ").Append(Info.requireResource);
+            labelBuilder.Append("Need ").Append(BuildingInfo.DisplayName(Info.requireResource));
 
         List<ResourceAmount> needs = Info.ConsumeList;
         if (needs != null && !cycling)
@@ -857,7 +907,11 @@ public class Building : MonoBehaviour
     void LateUpdate()
     {
         if (stockRoot != null)
+        {
             stockRoot.rotation = Quaternion.identity;
+            if (stockRoot.gameObject.activeSelf)
+                LayoutStockPlates();
+        }
         if (infoText != null)
             infoText.transform.rotation = Quaternion.identity;
         if (warningText != null)
@@ -960,7 +1014,7 @@ public class Building : MonoBehaviour
             rowGo.transform.SetParent(stockRoot, false);
             rowGo.transform.localPosition = new Vector3(0f, y, 0f);
 
-            var amount = CreateLabel("Amount", "0", Color.white, 0f, 51, rowGo.transform);
+            var amount = CreateLabel("Amount", "0", Color.black, 0f, 51, rowGo.transform);
             amount.anchor = TextAnchor.MiddleRight;
             amount.alignment = TextAlignment.Right;
             amount.characterSize = 0.11f;
@@ -979,11 +1033,19 @@ public class Building : MonoBehaviour
                 iconGo.transform.localScale = new Vector3(scale, scale, 1f);
             }
 
+            var plateGo = new GameObject("Plate");
+            plateGo.transform.SetParent(rowGo.transform, false);
+            var plate = plateGo.AddComponent<SpriteRenderer>();
+            plate.sprite = ShapeUtil.WhiteSprite();
+            plate.color = new Color(1f, 1f, 1f, 0.5f);
+            plate.sortingOrder = 50;
+
             stockRows.Add(new BuildingStockRow
             {
                 id = id,
                 amount = amount,
-                icon = icon
+                icon = icon,
+                plate = plate
             });
             row++;
         }
@@ -1000,6 +1062,58 @@ public class Building : MonoBehaviour
             else
                 row.amount.text = row.id + ":" + amount;
         }
+    }
+
+    void LayoutStockPlates()
+    {
+        for (int i = 0; i < stockRows.Count; i++)
+            LayoutStockPlate(stockRows[i]);
+    }
+
+    static void LayoutStockPlate(BuildingStockRow row)
+    {
+        if (row == null || row.plate == null)
+            return;
+
+        Transform space = row.plate.transform.parent;
+        if (space == null)
+            return;
+
+        float minX = float.MaxValue;
+        float minY = float.MaxValue;
+        float maxX = float.MinValue;
+        float maxY = float.MinValue;
+        bool has = EncapsulateLocalBounds(row.amount != null ? row.amount.GetComponent<Renderer>() : null, space, ref minX, ref minY, ref maxX, ref maxY);
+        has = EncapsulateLocalBounds(row.icon, space, ref minX, ref minY, ref maxX, ref maxY) || has;
+        if (!has)
+        {
+            row.plate.enabled = false;
+            return;
+        }
+
+        const float pad = 0.05f;
+        row.plate.enabled = true;
+        row.plate.transform.localPosition = new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, 0.02f);
+        row.plate.transform.localScale = new Vector3((maxX - minX) + pad * 2f, (maxY - minY) + pad * 2f, 1f);
+    }
+
+    static bool EncapsulateLocalBounds(Renderer renderer, Transform space, ref float minX, ref float minY, ref float maxX, ref float maxY)
+    {
+        if (renderer == null || !renderer.enabled || space == null)
+            return false;
+
+        Bounds b = renderer.bounds;
+        Vector3 a = space.InverseTransformPoint(b.min);
+        Vector3 c = space.InverseTransformPoint(b.max);
+        float x0 = Mathf.Min(a.x, c.x);
+        float x1 = Mathf.Max(a.x, c.x);
+        float y0 = Mathf.Min(a.y, c.y);
+        float y1 = Mathf.Max(a.y, c.y);
+        minX = Mathf.Min(minX, x0);
+        maxX = Mathf.Max(maxX, x1);
+        minY = Mathf.Min(minY, y0);
+        maxY = Mathf.Max(maxY, y1);
+        return true;
     }
 
     void CreateWarningLabel(float localY)
@@ -1077,6 +1191,7 @@ class BuildingStockRow
     public string id;
     public TextMesh amount;
     public SpriteRenderer icon;
+    public SpriteRenderer plate;
 }
 
 public static class BuildingArt
@@ -1123,19 +1238,22 @@ public static class BuildingArt
 
     public static Vector2 WorldSize(BuildingInfo info)
     {
-        float s = UniformScale(info);
+        Vector2 scale = VisualScale(info);
         Sprite sprite = LoadSprite(info);
         if (sprite == null)
-            return new Vector2(s, s);
+            return scale;
 
         Vector2 spriteSize = sprite.bounds.size;
-        return new Vector2(spriteSize.x * s, spriteSize.y * s);
+        return new Vector2(spriteSize.x * scale.x, spriteSize.y * scale.y);
     }
 
     public static Vector2 VisualScale(BuildingInfo info)
     {
         float s = UniformScale(info);
-        return new Vector2(s, s);
+        float width = s;
+        if (info != null && info.identifier == "sheet")
+            width = s * 2f;
+        return new Vector2(width, s);
     }
 
     public static Bounds PhysicsLocalBounds(BuildingInfo info)

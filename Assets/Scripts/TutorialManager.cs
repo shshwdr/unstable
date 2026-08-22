@@ -88,6 +88,8 @@ public class TutorialManager : MonoBehaviour
             Play("start");
         else if (level.identifier == "2")
             Play("level2");
+        else if (level.identifier == "4")
+            Play("level4");
     }
 
     void CopyLevelBuildings()

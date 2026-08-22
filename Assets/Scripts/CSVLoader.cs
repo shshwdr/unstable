@@ -76,6 +76,21 @@ public class BuildingInfo
         get { return !IsCore && !IsResource; }
     }
 
+    public static string DisplayName(string identifier)
+    {
+        if (string.IsNullOrEmpty(identifier))
+            return "";
+
+        BuildingInfo info;
+        if (CSVLoader.Instance != null &&
+            CSVLoader.Instance.buildingInfoMap.TryGetValue(identifier, out info) &&
+            info != null &&
+            !string.IsNullOrEmpty(info.name))
+            return info.name;
+
+        return identifier;
+    }
+
     public bool RequiresTop
     {
         get { return HasSpecial("requireTop"); }

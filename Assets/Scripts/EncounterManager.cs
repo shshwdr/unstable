@@ -15,6 +15,7 @@ public class EncounterManager : MonoBehaviour
     float nextWaveAt;
 
     bool hidden;
+    bool nextSpawnLeft;
 
     public bool IsComplete
     {
@@ -45,6 +46,7 @@ public class EncounterManager : MonoBehaviour
         spawnQueue.Clear();
         spawning = false;
         hidden = false;
+        nextSpawnLeft = true;
         waveIndex = 0;
         interval = 0f;
         nextSpawnAt = 0f;
@@ -67,7 +69,9 @@ public class EncounterManager : MonoBehaviour
 
         if (!Building.CoreExists())
         {
-            HideGate();
+            PlaceGate();
+            if (gate != null && gate.gameObject.activeSelf)
+                gate.SetCountdownPaused();
             return;
         }
 
@@ -108,9 +112,7 @@ public class EncounterManager : MonoBehaviour
     {
         while (spawnQueue.Count > 0 && gameTime >= nextSpawnAt)
         {
-            Vector3 pos = gate != null ? gate.transform.position : Vector3.zero;
-            pos += (Vector3)(Random.insideUnitCircle * 0.5f);
-            Enemy.Spawn(spawnQueue.Dequeue(), pos);
+            Enemy.Spawn(spawnQueue.Dequeue(), NextSpawnPosition());
             nextSpawnAt = interval <= 0f ? gameTime : gameTime + interval;
         }
 
@@ -125,12 +127,32 @@ public class EncounterManager : MonoBehaviour
         }
     }
 
+    Vector3 NextSpawnPosition()
+    {
+        Vector3 origin = gate != null ? gate.transform.position : Vector3.zero;
+        float radius = world != null && world.settings != null ? world.settings.enemySpawnRadius : 1f;
+        radius = Mathf.Max(0f, radius);
+
+        bool left = nextSpawnLeft;
+        nextSpawnLeft = !nextSpawnLeft;
+        if (radius <= 0f)
+            return origin;
+
+        float y = Random.Range(-radius, radius);
+        float maxX = Mathf.Sqrt(Mathf.Max(0f, radius * radius - y * y));
+        float x = maxX * Random.Range(0.05f, 1f);
+        if (left)
+            x = -x;
+
+        return origin + new Vector3(x, y, 0f);
+    }
+
     void PlaceGate()
     {
         if (gate == null)
             return;
 
-        if (hidden || !Building.CoreExists())
+        if (hidden)
         {
             gate.gameObject.SetActive(false);
             return;
@@ -328,6 +350,12 @@ public class SpawnGate : MonoBehaviour
     public bool Contains(Vector2 worldPos)
     {
         return ((Vector2)transform.position - worldPos).sqrMagnitude <= 0.85f * 0.85f;
+    }
+
+    public void SetCountdownPaused()
+    {
+        if (countdown != null)
+            countdown.text = "";
     }
 
     public void SetCountdown(float seconds)
