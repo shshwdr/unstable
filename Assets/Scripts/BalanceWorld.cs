@@ -1,5 +1,7 @@
+using FMODUnity;
 using System.Collections.Generic;
 using UnityEngine;
+using FMODUnity;
 
 public class BalanceWorld : MonoBehaviour
 {
@@ -22,6 +24,8 @@ public class BalanceWorld : MonoBehaviour
 
     public const float GoldStart = 100f;
     public float BoardTilt { get; private set; }
+
+    private FMOD.Studio.EventInstance musicInstance;
 
     float tiltTimer;
     TextMesh tiltHint;
@@ -67,6 +71,10 @@ public class BalanceWorld : MonoBehaviour
         FitCamera();
         ApplyPhysics();
         Gold = GoldStart;
+
+        musicInstance = RuntimeManager.CreateInstance("event:/Music/mus_gameplay");
+        musicInstance.setParameterByName("Game Over", 0f);
+        musicInstance.start();
     }
 
     void Start()
@@ -296,6 +304,10 @@ public class BalanceWorld : MonoBehaviour
         if (HasEnded)
             return;
         IsGameOver = true;
+
+        musicInstance.setParameterByName("Game Over", 1f);
+
+
         var tutorial = GetComponent<TutorialManager>();
         if (tutorial != null)
             tutorial.StopForGameEnd();
@@ -331,6 +343,9 @@ public class BalanceWorld : MonoBehaviour
 
         IsVictory = true;
         showAllClearPopup = true;
+
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_win_game");
+
         SetTutorialPaused(false);
         SetPaused(false);
     }
@@ -356,6 +371,9 @@ public class BalanceWorld : MonoBehaviour
 
         IsGameOver = false;
         IsVictory = false;
+
+        musicInstance.setParameterByName("Game Over", 0f);
+
         tiltTimer = 0f;
         Gold = GoldStart;
 
@@ -892,6 +910,7 @@ public class BalanceWorld : MonoBehaviour
         GUI.enabled = wasEnabled;
     }
 }
+
 
 public class WorldPlatform
 {

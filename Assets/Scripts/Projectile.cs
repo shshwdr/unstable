@@ -75,6 +75,22 @@ public class Projectile : MonoBehaviour
             float range = info != null && info.attackRange > 0.1f ? info.attackRange : 5f;
             projectile.outboundDest = from + dir * range;
         }
+
+        if (aoe)
+        {
+            // 3. Boomerang projectile shot
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_croissant_shot", from);
+        }
+        else if (slow)
+        {
+            // 2. Slow / Cheese projectile shot
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_slow_chesse_shot", from);
+        }
+        else
+        {
+            // 1. Standard / Bread projectile shot
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_basic_shoot", from);
+        }
     }
 
     public static void ClearAll()

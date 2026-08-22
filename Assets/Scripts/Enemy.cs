@@ -39,6 +39,9 @@ public class Enemy : MonoBehaviour
         go.transform.position = position;
         var enemy = go.AddComponent<Enemy>();
         enemy.Setup(info);
+
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_enemies_unlocked", position);
+
         return enemy;
     }
 
@@ -176,7 +179,9 @@ public class Enemy : MonoBehaviour
     {
         All.Remove(this);
         if (world != null && !world.IsRestarting && !world.HasEnded && TutorialManager.Instance != null)
-            TutorialManager.Instance.NotifyEnemyKilled();
+
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_enemy_die", transform.position);
+        TutorialManager.Instance.NotifyEnemyKilled();
     }
 
     void Update()

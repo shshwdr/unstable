@@ -1,5 +1,259 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-9008370173259522981
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_enemies_unlocked
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_enemies_unlocked
+  Guid:
+    Data1: 9480358
+    Data2: 1267336587
+    Data3: -1353905491
+    Data4: -340427885
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 2117
+--- !u!114 &-7313148541604964236
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_ui_win_game
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_ui_win_game
+  Guid:
+    Data1: -215161183
+    Data2: 1095915160
+    Data3: -1675536450
+    Data4: 1053698128
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 4235
+--- !u!114 &-7175784494006930471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_building_destroyed
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_building_destroyed
+  Guid:
+    Data1: -978730778
+    Data2: 1117772682
+    Data3: -595684678
+    Data4: -1868818194
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411
+--- !u!114 &-6432558135496766880
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_building_touch_ground
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_building_touch_ground
+  Guid:
+    Data1: -1668037640
+    Data2: 1152465233
+    Data3: -1100331596
+    Data4: -2137017204
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411
+--- !u!114 &-4326423850226583341
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_ui_change_building
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_ui_change_building
+  Guid:
+    Data1: -248747301
+    Data2: 1074541968
+    Data3: 6553
+    Data4: 1427991907
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411
+--- !u!114 &-3512426531821733568
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_ui_create_building
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_ui_create_building
+  Guid:
+    Data1: 1758206940
+    Data2: 1218630733
+    Data3: -1156063867
+    Data4: -1406281249
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 2117
+--- !u!114 &-2834054597214450731
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c18180ecb35941f4682ae60107b85b7c, type: 3}
+  m_Name: bank:/Master.strings.bank
+  m_EditorClassIdentifier: 
+  Path: Assets/FMODBanks/Desktop/Master.strings.bank
+  Name: Master.strings
+  StudioPath: bank:/Master.strings
+  lastModified: 639230216794156438
+  FileSizes:
+  - Name: 
+    Value: 1404
+  Exists: 1
+--- !u!114 &-2216755288663168711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_enemy_die
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_enemy_die
+  Guid:
+    Data1: 1065762107
+    Data2: 1311497518
+    Data3: 1894185919
+    Data4: 2066322414
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411
+--- !u!114 &-1056009532533922896
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c18180ecb35941f4682ae60107b85b7c, type: 3}
+  m_Name: bank:/Master.bank
+  m_EditorClassIdentifier: 
+  Path: Assets/FMODBanks/Desktop/Master.bank
+  Name: Master
+  StudioPath: bank:/Master
+  lastModified: 639230216794156438
+  FileSizes: []
+  Exists: 1
+--- !u!114 &-791407390226486832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_building_collision
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_building_collision
+  Guid:
+    Data1: 692588245
+    Data2: 1119684575
+    Data3: 511313298
+    Data4: -2098955461
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -12,11 +266,184 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d32cf7c32a3ed8347bac48ef5ed56d82, type: 3}
   m_Name: FMODStudioCache
   m_EditorClassIdentifier: 
-  EditorBanks: []
-  EditorEvents: []
+  EditorBanks:
+  - {fileID: -2834054597214450731}
+  - {fileID: -1056009532533922896}
+  EditorEvents:
+  - {fileID: 1882885171971632591}
+  - {fileID: 8487586030728455032}
+  - {fileID: 341534516730143459}
+  - {fileID: -4326423850226583341}
+  - {fileID: -3512426531821733568}
+  - {fileID: -7175784494006930471}
+  - {fileID: -6432558135496766880}
+  - {fileID: 8637484186255602497}
+  - {fileID: -2216755288663168711}
+  - {fileID: -7313148541604964236}
+  - {fileID: -9008370173259522981}
+  - {fileID: -791407390226486832}
   EditorParameters: []
-  MasterBanks: []
-  StringsBanks: []
+  MasterBanks:
+  - {fileID: -1056009532533922896}
+  StringsBanks:
+  - {fileID: -2834054597214450731}
   cacheVersion: 131860
-  cacheTime: 0
-  SerializableEventsDict: []
+  cacheTime: 639230216794156438
+  SerializableEventsDict:
+  - key: event:/SFX/sfx_croissant_shot
+    index: 0
+  - key: event:/SFX/sfx_basic_shoot
+    index: 1
+  - key: event:/Music/mus_gameplay
+    index: 2
+  - key: event:/SFX/sfx_ui_change_building
+    index: 3
+  - key: event:/SFX/sfx_ui_create_building
+    index: 4
+  - key: event:/SFX/sfx_building_destroyed
+    index: 5
+  - key: event:/SFX/sfx_building_touch_ground
+    index: 6
+  - key: event:/SFX/sfx_slow_chesse_shot
+    index: 7
+  - key: event:/SFX/sfx_enemy_die
+    index: 8
+  - key: event:/SFX/sfx_ui_win_game
+    index: 9
+  - key: event:/SFX/sfx_enemies_unlocked
+    index: 10
+  - key: event:/SFX/sfx_building_collision
+    index: 11
+--- !u!114 &341534516730143459
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/Music/mus_gameplay
+  m_EditorClassIdentifier: 
+  Path: event:/Music/mus_gameplay
+  Guid:
+    Data1: -650247461
+    Data2: 1113591811
+    Data3: 285307276
+    Data4: -2137920119
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 1
+  Is3D: 0
+  IsOneShot: 0
+  Parameters:
+  - {fileID: 3957401942400345443}
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 64000
+--- !u!114 &1882885171971632591
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_croissant_shot
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_croissant_shot
+  Guid:
+    Data1: 366575638
+    Data2: 1116843616
+    Data3: -973639805
+    Data4: -396724121
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411
+--- !u!114 &3957401942400345443
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fecb8ef7f94ca804a8ab72049b86782e, type: 3}
+  m_Name: parameter:/mus_gameplay/Game Over
+  m_EditorClassIdentifier: 
+  Name: Game Over
+  StudioPath: 
+  Min: 0
+  Max: 1
+  Default: 0
+  ID:
+    data1: 2581783894
+    data2: 393320474
+  Type: 0
+  IsGlobal: 0
+  Labels: []
+  Exists: 1
+--- !u!114 &8487586030728455032
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_basic_shoot
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_basic_shoot
+  Guid:
+    Data1: 574069900
+    Data2: 1297711634
+    Data3: -510312317
+    Data4: 2040124165
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 705
+--- !u!114 &8637484186255602497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_slow_chesse_shot
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_slow_chesse_shot
+  Guid:
+    Data1: -2141247233
+    Data2: 1076424266
+    Data3: -444905826
+    Data4: 1549380573
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411

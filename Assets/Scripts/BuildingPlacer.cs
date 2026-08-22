@@ -250,6 +250,8 @@ public class BuildingPlacer : MonoBehaviour
         {
             selected = index;
             demolishMode = false;
+
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_change_building");
         }
 
         buttonHold = true;
@@ -264,6 +266,9 @@ public class BuildingPlacer : MonoBehaviour
         demolishMode = false;
         buttonHold = false;
         dragging = false;
+
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_change_building");
+
         StopDemolishShake();
         RefreshGhost();
     }
@@ -719,6 +724,9 @@ public class BuildingPlacer : MonoBehaviour
         world.AddGold(DemolishRefund(building));
         if (demolishShake == building)
             StopDemolishShake();
+
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_building_destroyed", building.transform.position);
+
         Destroy(building.gameObject);
         hovered = null;
         if (TutorialManager.Instance != null)
@@ -789,6 +797,9 @@ public class BuildingPlacer : MonoBehaviour
             return;
 
         Spawn(position, info);
+
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_create_building");
+
         if (!info.IsCore)
             ResetPlacement();
         else

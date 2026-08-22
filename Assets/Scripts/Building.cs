@@ -35,6 +35,9 @@ public class Building : MonoBehaviour
 
     public static bool ShowResourceStock = true;
 
+    readonly HashSet<Building> currentContacts = new HashSet<Building>();
+    bool isGrounded;
+
     static readonly Color StarvedTint = new Color(0.2f, 0.2f, 0.22f, 1f);
     static readonly Color WarningRed = new Color(1f, 0.23f, 0.23f, 1f);
     static Sprite warningSprite;
@@ -153,6 +156,32 @@ public class Building : MonoBehaviour
 
         RefreshLabels();
         RefreshCdFill();
+    }
+
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (collision == null || collision.gameObject == null)
+            return;
+
+        // --- 1. Ground Collision ---
+        if (!isGrounded && collision.gameObject.CompareTag("Ground"))
+        {
+            isGrounded = true;
+            Vector3 impactPosition = collision.GetContact(0).point;
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_building_touch_ground", impactPosition);
+            return;
+        }
+
+        // --- 2. Building-to-Building Collision ---
+        Building otherBuilding = collision.gameObject.GetComponent<Building>();
+        if (otherBuilding != null)
+        {
+            if (currentContacts.Add(otherBuilding))
+            {
+                Vector3 impactPosition = collision.GetContact(0).point;
+                FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_building_collision", impactPosition);
+            }
+        }
     }
 
     void OnCollisionStay2D(Collision2D collision)
