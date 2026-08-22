@@ -9,7 +9,7 @@
 [LOG] Thread::initThread                       : Init FMOD stream thread. Affinity: 0x4000000000000003, Priority: 0xFFFF7FFB, Stack Size: 98304, Semaphore: No, Sleep Time: 10, Looping: Yes.
 [LOG] SystemI::DSPCodecPoolRegister            : register codec pool for pool type 0
 [LOG] Thread::initThread                       : Init FMOD mixer thread. Affinity: 0x4000000000000001, Priority: 0xFFFF7FFA, Stack Size: 81920, Semaphore: No, Sleep Time: 0, Looping: Yes.
-[LOG] AsyncManager::init                       : manager 00000221E4D99048 isAsync 0 updatePeriod 0.02
+[LOG] AsyncManager::init                       : manager 000001BAF00D77A8 isAsync 0 updatePeriod 0.02
 [LOG] AsyncManager::init                       : done
 [LOG] PlaybackSystem::init                     : 
 [LOG] Thread::initThread                       : Init FMOD Studio sample load thread. Affinity: 0x4000000000000003, Priority: 0xFFFF7FFD, Stack Size: 98304, Semaphore: No, Sleep Time: 1, Looping: No.
@@ -20,6 +20,223 @@
 [LOG] BankLoader::serializeBank                : fileversion = 146, compatVersion = 146 (oldest = 44, newest = 146)
 [LOG] BankLoader::serializeBank                : fileversion = 146, compatVersion = 146 (oldest = 44, newest = 146)
 [LOG] PlaybackSystem::acquireMasterBus         : Setting master channel group format to 6
+[WRN] DSPJobList::addJob                       : DSP JobList expanding job from 1024 entries to 2048 entries.
+[WRN] ChannelI::updateVirtualState             : Channel 0x5FE0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x5FE0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x5BE0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x5BE0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x56E0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x56E0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x5340005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x5340005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x4F80005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x4F80005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x4B80005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x4B80005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x46E0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x46E0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x4340005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x4340005 Stolen with audibility 0.152207
+[WRN] DSPJobList::addJob                       : DSP JobList expanding job from 2048 entries to 3072 entries.
+[WRN] ChannelI::updateVirtualState             : Channel 0x3F60005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x3F60005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x3B00005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x3B00005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x3760005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x3760005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x33A0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x33A0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2FA0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2FA0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7FC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2A60005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7FC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2A60005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2740005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2720005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2740005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2720005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2320005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2300005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2320005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x2300005 Stolen with audibility 0.152207
+[WRN] DSPJobList::addJob                       : DSP JobList expanding job from 3072 entries to 4096 entries.
+[WRN] ChannelI::updateVirtualState             : Channel 0x1EC0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1EA0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1EC0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1EA0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1960005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1940005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1960005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1940005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1580005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1560005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1580005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1560005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1100005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x10E0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1100005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x10E0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x1100005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x10E0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0xBC0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0xBA0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0xBC0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0xBA0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x6C0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x6A0005 Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x6C0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x6A0005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x120005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x100005 Stolen with audibility 0.152207
+[WRN] DSPJobList::addJob                       : DSP JobList expanding job from 4096 entries to 5120 entries.
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x120005 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x100005 Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x185 Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x185 Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x7DC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7DE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E60009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E80009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7EA0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7EC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7EE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7F00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7F20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7F40009 Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x7DC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7DE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E60009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7E80009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7EA0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7EC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7EE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7F00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7F20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7F40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BA0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C60009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C80009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CA0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D60009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D80009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BA0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C60009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C80009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CA0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D60009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D80009 Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BA0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7BE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C60009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7C80009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CA0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CC0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7CE0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D00009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D20009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D40009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D60009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7D80009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7B8008D Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x7B8008D Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7960099 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7960099 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x73C0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x73E0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7400009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7420009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7440009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7460009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7480009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x74A0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x74C0009 Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] AsyncCommandBuffer::growBuffer           : Growing command buffer to 65536 bytes. Initial command buffer size can be tuned to avoid dynamic growth using Studio::System::setAdvancedSettings()
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x73C0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x73E0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7400009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7420009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7440009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7460009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7480009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x74A0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x74C0009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7360009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7380009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x73A011D Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7360009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7380009 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x73A011D Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7200025 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7200025 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7200025 Stolen with audibility 0.152207
+[WRN] OutputWASAPI::mixerThread                : Starvation detected in WASAPI output buffer!
+[WRN] ChannelI::updateVirtualState             : Channel 0x7200025 Stolen with audibility 0.152207
+[WRN] ChannelI::updateVirtualState             : Channel 0x7200025 Stolen with audibility 0.152207
+[LOG] SoundI::release                          : mus_gameplay_loop (000001BBBB12E338)
+[LOG] SoundI::release                          :     mus_gameplay_loop (000001BBBC982CE8)
+[LOG] SoundI::release                          :     mus_gameplay_loop (000001BBBB12F468)
+[LOG] SoundI::release                          :  (000001BC3C769A88)
+[LOG] SoundI::release                          :     sfx_ui_click (000001BBBC983468)
+[LOG] Thread::callback                         : FMOD Studio update thread finished.
+[LOG] Thread::callback                         : FMOD Studio bank load thread finished.
+[LOG] Profile::disconnectAll                   : Profiler disconnecting all clients
+[LOG] Thread::callback                         : FMOD Studio sample load thread finished.
+[LOG] LiveUpdate::release                      : 
+[LOG] LiveUpdate::reset                        : Reset connection (reason Disconnected)
+[LOG] Thread::callback                         : FMOD stream thread finished.
+[LOG] Thread::callback                         : FMOD mixer thread finished.
+[LOG] Profile::disconnectAll                   : Profiler disconnecting all clients
+[LOG] SystemI::closeInternal                   : Closed.
 [LOG] Thread::callback                         : FMOD Studio bank load thread finished.
 [LOG] Thread::callback                         : FMOD Studio sample load thread finished.
 [LOG] LiveUpdate::release                      : 
@@ -27,3 +244,5 @@
 [LOG] Thread::callback                         : FMOD stream thread finished.
 [LOG] Thread::callback                         : FMOD mixer thread finished.
 [LOG] SystemI::closeInternal                   : Closed.
+[LOG] Thread::callback                         : FMOD nonblocking thread (0) finished.
+[LOG] Thread::callback                         : FMOD file thread finished.

@@ -27,6 +27,33 @@ MonoBehaviour:
   MinDistance: 1
   MaxDistance: 20
   Length: 2117
+--- !u!114 &-8493810265908121573
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_bread_shot
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_bread_shot
+  Guid:
+    Data1: 861046343
+    Data2: 1248783319
+    Data3: 1459938176
+    Data4: 2116009334
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411
 --- !u!114 &-7313148541604964236
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -177,11 +204,38 @@ MonoBehaviour:
   Path: Assets/FMODBanks/Desktop/Master.strings.bank
   Name: Master.strings
   StudioPath: bank:/Master.strings
-  lastModified: 639230216794156438
+  lastModified: 639230273100573320
   FileSizes:
   - Name: 
-    Value: 1404
+    Value: 1478
   Exists: 1
+--- !u!114 &-2525150196105183156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ceb653cd98e289a4e8697a1af55201f2, type: 3}
+  m_Name: event:/SFX/sfx_ui_click
+  m_EditorClassIdentifier: 
+  Path: event:/SFX/sfx_ui_click
+  Guid:
+    Data1: -1269511166
+    Data2: 1241842278
+    Data3: -1669954402
+    Data4: -1650776457
+  Banks:
+  - {fileID: -1056009532533922896}
+  IsStream: 0
+  Is3D: 0
+  IsOneShot: 1
+  Parameters: []
+  MinDistance: 1
+  MaxDistance: 20
+  Length: 1411
 --- !u!114 &-2216755288663168711
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -224,7 +278,7 @@ MonoBehaviour:
   Path: Assets/FMODBanks/Desktop/Master.bank
   Name: Master
   StudioPath: bank:/Master
-  lastModified: 639230216794156438
+  lastModified: 639230273100558167
   FileSizes: []
   Exists: 1
 --- !u!114 &-791407390226486832
@@ -282,13 +336,15 @@ MonoBehaviour:
   - {fileID: -7313148541604964236}
   - {fileID: -9008370173259522981}
   - {fileID: -791407390226486832}
+  - {fileID: -2525150196105183156}
+  - {fileID: -8493810265908121573}
   EditorParameters: []
   MasterBanks:
   - {fileID: -1056009532533922896}
   StringsBanks:
   - {fileID: -2834054597214450731}
   cacheVersion: 131860
-  cacheTime: 639230216794156438
+  cacheTime: 639230273100573320
   SerializableEventsDict:
   - key: event:/SFX/sfx_croissant_shot
     index: 0
@@ -314,6 +370,10 @@ MonoBehaviour:
     index: 10
   - key: event:/SFX/sfx_building_collision
     index: 11
+  - key: event:/SFX/sfx_ui_click
+    index: 12
+  - key: event:/SFX/sfx_bread_shot
+    index: 13
 --- !u!114 &341534516730143459
 MonoBehaviour:
   m_ObjectHideFlags: 0

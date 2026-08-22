@@ -171,6 +171,7 @@ public class TutorialManager : MonoBehaviour
         }
 
         BeginStep(stepIndex + 1);
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_click");
     }
 
     void Update()
@@ -187,8 +188,8 @@ public class TutorialManager : MonoBehaviour
         TutorialInfo info = steps[stepIndex];
         if (overlay)
         {
-            if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))
-                Advance();
+            if (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1))               
+            Advance();            
             return;
         }
 
