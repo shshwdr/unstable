@@ -1224,7 +1224,7 @@ public class BuildingPlacer : MonoBehaviour
             fontSize = 24,
             fontStyle = FontStyle.Bold,
             alignment = TextAnchor.MiddleCenter,
-            wordWrap = true
+            wordWrap = false
         };
         captionStyle.normal.textColor = new Color(0.22f, 0.14f, 0.1f);
         captionStyle.hover.textColor = captionStyle.normal.textColor;
@@ -1232,7 +1232,7 @@ public class BuildingPlacer : MonoBehaviour
         {
             fontSize = 22,
             fontStyle = FontStyle.Bold,
-            alignment = TextAnchor.UpperLeft
+            alignment = TextAnchor.MiddleLeft
         };
         hotkeyStyle.normal.textColor = new Color(0.22f, 0.14f, 0.1f);
         hotkeyStyle.hover.textColor = hotkeyStyle.normal.textColor;
@@ -1261,31 +1261,34 @@ public class BuildingPlacer : MonoBehaviour
             bool wasEnabled = GUI.enabled;
             GUI.enabled = coreExists;
 
-            GUI.Label(new Rect(r.x + 10f, r.y + 6f, 36f, 24f),
+            GUI.Label(new Rect(r.x + 8f, r.y + 4f, 42f, 34f),
                 isDemolish ? "0" : (i + 1).ToString(), hotkeyStyle);
 
+            float lineH = 28f;
             float footerH = r.height * 0.22f;
-            float nameH = 36f;
+            float nameH = 64f;
             float imgPad = 14f;
+            var nameRect = new Rect(
+                r.x + 8f,
+                r.y + r.height - footerH - nameH + lineH * 0.5f,
+                r.width - 16f,
+                nameH);
             var imgRect = new Rect(
                 r.x + imgPad,
-                r.y + 32f,
+                r.y + 8f,
                 r.width - imgPad * 2f,
-                r.height - footerH - nameH - 36f);
-            var nameRect = new Rect(r.x + 8f, r.y + r.height - footerH - nameH, r.width - 16f, nameH);
+                nameRect.y + lineH - (r.y + 8f));
             var costRect = new Rect(r.x + 8f, r.y + r.height - footerH, r.width - 16f, footerH);
 
             if (isDemolish)
             {
                 DrawSprite(imgRect, DemolishIcon());
-                captionStyle.alignment = TextAnchor.MiddleCenter;
-                GUI.Label(nameRect, "Destroy", captionStyle);
+                DrawCaption(nameRect, "Destroy", captionStyle);
             }
             else
             {
                 DrawBuildingIcon(imgRect, list[i]);
-                captionStyle.alignment = TextAnchor.MiddleCenter;
-                GUI.Label(nameRect, list[i].name, captionStyle);
+                DrawCaption(nameRect, list[i].name, captionStyle);
                 DrawCost(costRect, list[i].cost, captionStyle);
                 if (ShouldShowNewBadge(list[i], i))
                     DrawNewBadge(r);
@@ -1307,6 +1310,49 @@ public class BuildingPlacer : MonoBehaviour
             GUI.Label(new Rect(0f, goldY - 40f, Screen.width, 36f), "Place Core", hintStyle);
             barRect = new Rect(0f, goldY - 48f, Screen.width, Screen.height - (goldY - 48f));
         }
+    }
+
+    const float CaptionLineTighten = 5f;
+
+    static void DrawCaption(Rect rect, string text, GUIStyle style)
+    {
+        if (string.IsNullOrEmpty(text))
+            return;
+
+        float glyphH = style.CalcHeight(new GUIContent("Ag"), 1000f);
+        float step = Mathf.Max(8f, glyphH - CaptionLineTighten);
+        var lines = WrapCaption(text, style, rect.width);
+        float total = glyphH + Mathf.Max(0, lines.Count - 1) * step;
+        float y = rect.y + Mathf.Max(0f, (rect.height - total) * 0.5f);
+        for (int i = 0; i < lines.Count; i++)
+            GUI.Label(new Rect(rect.x, y + i * step, rect.width, glyphH), lines[i], style);
+    }
+
+    static List<string> WrapCaption(string text, GUIStyle style, float maxWidth)
+    {
+        var lines = new List<string>();
+        string[] words = text.Split(' ');
+        string current = "";
+        for (int i = 0; i < words.Length; i++)
+        {
+            string word = words[i];
+            if (string.IsNullOrEmpty(word))
+                continue;
+            string next = current.Length == 0 ? word : current + " " + word;
+            if (current.Length > 0 && style.CalcSize(new GUIContent(next)).x > maxWidth)
+            {
+                lines.Add(current);
+                current = word;
+            }
+            else
+                current = next;
+        }
+
+        if (current.Length > 0)
+            lines.Add(current);
+        if (lines.Count == 0)
+            lines.Add(text);
+        return lines;
     }
 
     void DrawCost(Rect rect, int cost, GUIStyle nameStyle)
