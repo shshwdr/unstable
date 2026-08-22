@@ -25,10 +25,10 @@ public class BalanceWorld : MonoBehaviour
 
     float tiltTimer;
     TextMesh tiltHint;
+    Transform background;
     const float TiltHintAngle = 20f;
     const float FulcrumScale = 1.1f;
     static readonly Color FulcrumColor = new Color(0.18f, 0.18f, 0.2f);
-    float appliedFulcrumTopWidth = float.NaN;
     int levelIndex;
     bool showAllClearPopup;
     readonly List<WorldPlatform> platforms = new List<WorldPlatform>();
@@ -82,6 +82,7 @@ public class BalanceWorld : MonoBehaviour
             IsRestarting = false;
 
         HandleCameraZoom();
+        RefreshBackground();
 
         var tutorial = GetComponent<TutorialManager>();
         bool blocked = tutorial != null && tutorial.BlocksInput;
@@ -169,27 +170,6 @@ public class BalanceWorld : MonoBehaviour
             Rigidbody2D body = building.GetComponent<Rigidbody2D>();
             if (body != null)
                 body.angularDrag = buildingAngularDrag;
-        }
-
-        RefreshFulcrumVisuals();
-    }
-
-    void RefreshFulcrumVisuals()
-    {
-        float topWidth = settings.fulcrumTopWidth;
-        if (Mathf.Approximately(appliedFulcrumTopWidth, topWidth))
-            return;
-
-        appliedFulcrumTopWidth = topWidth;
-        Sprite sprite = ShapeUtil.Trapezoid(FulcrumColor, topWidth);
-        for (int i = 0; i < platforms.Count; i++)
-        {
-            WorldPlatform platform = platforms[i];
-            if (platform == null || platform.Fulcrum == null)
-                continue;
-            var renderer = platform.Fulcrum.GetComponent<SpriteRenderer>();
-            if (renderer != null)
-                renderer.sprite = sprite;
         }
     }
 
@@ -581,21 +561,32 @@ public class BalanceWorld : MonoBehaviour
         board.transform.SetParent(transform);
         board.transform.position = pos;
 
+        Sprite sprite = WorldArt.Load(def.IsBalance ? "board" : "island");
+        Vector3 visualScale = sprite != null
+            ? WorldArt.SizeScale(sprite, def.width, height)
+            : new Vector3(def.width, height, 1f);
+        Vector2 colliderOffset = new Vector2(offsetX, 0f);
+
         var visual = new GameObject("Visual");
         visual.transform.SetParent(board.transform);
         visual.transform.localPosition = new Vector3(offsetX, 0f, 0f);
-        visual.transform.localScale = new Vector3(def.width, height, 1f);
+        visual.transform.localScale = visualScale;
         var renderer = visual.AddComponent<SpriteRenderer>();
-        renderer.sprite = ShapeUtil.Square(def.IsBalance
-            ? new Color(0.78f, 0.62f, 0.42f)
-            : new Color(0.58f, 0.52f, 0.46f));
+        renderer.sprite = sprite != null
+            ? sprite
+            : ShapeUtil.Square(def.IsBalance
+                ? new Color(0.78f, 0.62f, 0.42f)
+                : new Color(0.58f, 0.52f, 0.46f));
         renderer.sortingOrder = 0;
 
         var body = board.AddComponent<Rigidbody2D>();
-        var box = board.AddComponent<BoxCollider2D>();
-        box.size = new Vector2(def.width, height);
-        box.offset = new Vector2(offsetX, 0f);
-        box.sharedMaterial = SharedMaterial;
+        Collider2D col = WorldArt.AddCollider(
+            board,
+            sprite,
+            new Vector2(visualScale.x, visualScale.y),
+            colliderOffset,
+            SharedMaterial,
+            new Vector2(def.width, height));
 
         GameObject fulcrumGo = null;
         if (def.IsBalance)
@@ -628,14 +619,14 @@ public class BalanceWorld : MonoBehaviour
             Root = board,
             Fulcrum = fulcrumGo,
             Body = body,
-            Collider = box
+            Collider = col
         };
         platforms.Add(created);
 
         if (BoardBody == null && def.IsBalance)
         {
             BoardBody = body;
-            BoardCollider = box;
+            BoardCollider = col;
         }
     }
 
@@ -644,14 +635,28 @@ public class BalanceWorld : MonoBehaviour
         float boardHalf = (settings != null ? settings.boardHeight : 0.35f) * 0.5f;
         var fulcrum = new GameObject("Fulcrum");
         fulcrum.transform.SetParent(transform);
-        fulcrum.transform.position = new Vector3(boardPos.x, boardPos.y - boardHalf, 0f);
-        fulcrum.transform.localScale = new Vector3(FulcrumScale, FulcrumScale, 1f);
 
         var renderer = fulcrum.AddComponent<SpriteRenderer>();
-        float topWidth = settings != null ? settings.fulcrumTopWidth : 0.1f;
-        renderer.sprite = ShapeUtil.Trapezoid(FulcrumColor, topWidth);
         renderer.sortingOrder = -1;
-        appliedFulcrumTopWidth = topWidth;
+
+        Sprite sprite = WorldArt.Load("pivot");
+        if (sprite != null)
+        {
+            renderer.sprite = sprite;
+            float sizeY = sprite.bounds.size.y;
+            float scale = sizeY > 0.0001f ? FulcrumScale / sizeY : 1f;
+            fulcrum.transform.localScale = new Vector3(scale, scale, 1f);
+            float top = sprite.bounds.max.y * scale;
+            fulcrum.transform.position = new Vector3(boardPos.x, boardPos.y - boardHalf - top, 0f);
+        }
+        else
+        {
+            fulcrum.transform.position = new Vector3(boardPos.x, boardPos.y - boardHalf, 0f);
+            fulcrum.transform.localScale = new Vector3(FulcrumScale, FulcrumScale, 1f);
+            float topWidth = settings != null ? settings.fulcrumTopWidth : 0.1f;
+            renderer.sprite = ShapeUtil.Trapezoid(FulcrumColor, topWidth);
+        }
+
         return fulcrum;
     }
 
@@ -739,6 +744,39 @@ public class BalanceWorld : MonoBehaviour
         cam.orthographicSize = size;
         cam.transform.position = new Vector3(0f, 0.4f, -10f);
         cam.backgroundColor = new Color(0.55f, 0.74f, 0.86f);
+        RefreshBackground();
+    }
+
+    void RefreshBackground()
+    {
+        Camera cam = Camera.main;
+        if (cam == null)
+            return;
+
+        Sprite sprite = WorldArt.Load("bk");
+        if (sprite == null)
+            return;
+
+        if (background == null)
+        {
+            var go = new GameObject("Background");
+            var renderer = go.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.sortingOrder = -20;
+            background = go.transform;
+        }
+
+        background.SetParent(cam.transform, false);
+        background.localPosition = new Vector3(0f, 0f, 10f);
+        background.localRotation = Quaternion.identity;
+
+        float worldH = cam.orthographicSize * 2f;
+        float worldW = worldH * cam.aspect;
+        Vector2 size = sprite.bounds.size;
+        float sx = size.x > 0.0001f ? worldW / size.x : 1f;
+        float sy = size.y > 0.0001f ? worldH / size.y : 1f;
+        float s = Mathf.Max(sx, sy);
+        background.localScale = new Vector3(s, s, 1f);
     }
 
     void OnGUI()
@@ -791,8 +829,8 @@ public class BalanceWorld : MonoBehaviour
         if (!IsGameOver)
             return;
 
-        float boxW = 360f;
-        float boxH = 140f;
+        float boxW = 520f;
+        float boxH = 200f;
         var box = new Rect((Screen.width - boxW) * 0.5f, Screen.height * 0.32f, boxW, boxH);
         GUI.Box(box, "");
 
@@ -803,15 +841,18 @@ public class BalanceWorld : MonoBehaviour
             fontStyle = FontStyle.Bold
         };
         style.normal.textColor = Color.white;
-        GUI.Label(new Rect(box.x, box.y + 18f, box.width, 50f), "Defeat", style);
+        GUI.Label(new Rect(box.x, box.y + 16f, box.width, 50f), "Defeat", style);
 
         var sub = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = 18
+            fontSize = 18,
+            wordWrap = true
         };
         sub.normal.textColor = Color.white;
-        GUI.Label(new Rect(box.x, box.y + 78f, box.width, 30f), "Press R to restart", sub);
+        GUI.Label(new Rect(box.x + 16f, box.y + 72f, box.width - 32f, 28f), "Press R to restart", sub);
+        GUI.Label(new Rect(box.x + 16f, box.y + 108f, box.width - 32f, 72f),
+            "Remember: you can press Space to pause and adjust your buildings", sub);
     }
 
     void DrawAllClearPopup()
@@ -975,5 +1016,88 @@ public static class ShapeUtil
         tex.Apply();
         tex.wrapMode = TextureWrapMode.Clamp;
         return Sprite.Create(tex, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f), size);
+    }
+}
+
+public static class WorldArt
+{
+    const string ResourceFolder = "others/";
+    static readonly List<Vector2> shapePoints = new List<Vector2>(64);
+    static readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
+    static readonly HashSet<string> missingSprites = new HashSet<string>();
+
+    public static Sprite Load(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+            return null;
+
+        Sprite sprite;
+        if (spriteCache.TryGetValue(name, out sprite))
+            return sprite;
+        if (missingSprites.Contains(name))
+            return null;
+
+        sprite = Resources.Load<Sprite>(ResourceFolder + name);
+        if (sprite == null)
+        {
+            Texture2D tex = Resources.Load<Texture2D>(ResourceFolder + name);
+            if (tex != null)
+                sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
+        }
+
+        if (sprite == null)
+        {
+            missingSprites.Add(name);
+            return null;
+        }
+
+        spriteCache[name] = sprite;
+        return sprite;
+    }
+
+    public static Vector3 SizeScale(Sprite sprite, float worldWidth, float worldHeight)
+    {
+        if (sprite == null)
+            return Vector3.one;
+
+        Vector2 size = sprite.bounds.size;
+        float sx = size.x > 0.0001f ? worldWidth / size.x : 1f;
+        float sy = size.y > 0.0001f ? worldHeight / size.y : 1f;
+        return new Vector3(sx, sy, 1f);
+    }
+
+    public static Collider2D AddCollider(
+        GameObject go,
+        Sprite sprite,
+        Vector2 scale,
+        Vector2 offset,
+        PhysicsMaterial2D material,
+        Vector2 boxSize)
+    {
+        if (sprite != null && sprite.GetPhysicsShapeCount() > 0)
+        {
+            var poly = go.AddComponent<PolygonCollider2D>();
+            int count = sprite.GetPhysicsShapeCount();
+            poly.pathCount = count;
+            for (int i = 0; i < count; i++)
+            {
+                shapePoints.Clear();
+                sprite.GetPhysicsShape(i, shapePoints);
+                for (int p = 0; p < shapePoints.Count; p++)
+                    shapePoints[p] = new Vector2(
+                        shapePoints[p].x * scale.x + offset.x,
+                        shapePoints[p].y * scale.y + offset.y);
+                poly.SetPath(i, shapePoints);
+            }
+
+            poly.sharedMaterial = material;
+            return poly;
+        }
+
+        var box = go.AddComponent<BoxCollider2D>();
+        box.size = boxSize;
+        box.offset = offset;
+        box.sharedMaterial = material;
+        return box;
     }
 }

@@ -31,6 +31,7 @@ MonoBehaviour:
   enemyAttackSpacing: 0.5
   enemySpawnRadius: 1
   enemyScale: 2
+  enemyAnimInterval: 0.1
   projectileScale: 1.5
   cameraSize: 8
   cameraZoomMin: 8

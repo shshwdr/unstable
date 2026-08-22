@@ -42,6 +42,8 @@ public class GameBalanceSettings : ScriptableObject
     public float enemySpawnRadius = 1f;
     [Tooltip("敌人视觉与碰撞大小倍率。")]
     public float enemyScale = 2f;
+    [Tooltip("敌人帧动画每帧间隔（秒）。从 Resources/enemy/名字 按文件名顺序播放。")]
+    public float enemyAnimInterval = 0.3f;
 
     [Header("战斗")]
     [Tooltip("投掷物视觉大小倍率。")]

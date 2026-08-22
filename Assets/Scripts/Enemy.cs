@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -13,6 +14,9 @@ public class Enemy : MonoBehaviour
 
     Transform visual;
     SpriteRenderer visualRenderer;
+    Sprite[] animFrames;
+    int animFrame;
+    float animTimer;
     Rigidbody2D body;
     float attackTimer;
     BalanceWorld world;
@@ -87,7 +91,8 @@ public class Enemy : MonoBehaviour
 
     void ApplyVisual(EnemyInfo info, float scaleMul)
     {
-        Sprite sprite = EnemyArt.Load(info.identifier);
+        animFrames = EnemyArt.LoadFrames(info.identifier);
+        Sprite sprite = animFrames != null && animFrames.Length > 0 ? animFrames[0] : null;
         if (sprite != null)
         {
             visualRenderer.sprite = sprite;
@@ -108,6 +113,25 @@ public class Enemy : MonoBehaviour
         float fallback = 0.45f * scaleMul;
         visual.localScale = new Vector3(fallback, fallback, 1f);
         visualRenderer.sprite = ShapeUtil.Triangle(ColorFor(info.identifier));
+    }
+
+    void TickAnim()
+    {
+        if (visualRenderer == null || animFrames == null || animFrames.Length <= 1)
+            return;
+
+        float interval = 0.3f;
+        if (world != null && world.settings != null && world.settings.enemyAnimInterval > 0f)
+            interval = world.settings.enemyAnimInterval;
+
+        animTimer += Time.deltaTime;
+        if (animTimer < interval)
+            return;
+
+        animTimer -= interval;
+        animFrame = (animFrame + 1) % animFrames.Length;
+        if (animFrames[animFrame] != null)
+            visualRenderer.sprite = animFrames[animFrame];
     }
 
     void SetupMeleePhysics(Vector2 size)
@@ -166,6 +190,7 @@ public class Enemy : MonoBehaviour
             TickRanged();
 
         UpdateFacing();
+        TickAnim();
 
         if (Info.isMelee)
             CheckFellOff();
@@ -292,16 +317,8 @@ public class Enemy : MonoBehaviour
         if (visual == null || visualRenderer == null || delta.sqrMagnitude <= 0.0001f)
             return;
 
-        if (Info.isMelee)
-        {
-            visual.localRotation = Quaternion.identity;
-            visualRenderer.flipX = delta.x < 0f;
-            return;
-        }
-
-        visualRenderer.flipX = false;
-        float angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
-        visual.rotation = Quaternion.Euler(0f, 0f, angle);
+        visual.localRotation = Quaternion.identity;
+        visualRenderer.flipX = delta.x < 0f;
     }
 
     void AlignToBoard()
@@ -507,35 +524,88 @@ public class Enemy : MonoBehaviour
 public static class EnemyArt
 {
     const string ResourceFolder = "enemy/";
-    static readonly Dictionary<string, Sprite> spriteCache = new Dictionary<string, Sprite>();
-    static readonly HashSet<string> missingSprites = new HashSet<string>();
+    static readonly Dictionary<string, Sprite[]> frameCache = new Dictionary<string, Sprite[]>();
+    static readonly HashSet<string> missingAnims = new HashSet<string>();
 
-    public static Sprite Load(string identifier)
+    public static Sprite[] LoadFrames(string identifier)
     {
         if (string.IsNullOrEmpty(identifier))
             return null;
 
-        Sprite sprite;
-        if (spriteCache.TryGetValue(identifier, out sprite))
-            return sprite;
-        if (missingSprites.Contains(identifier))
+        Sprite[] frames;
+        if (frameCache.TryGetValue(identifier, out frames))
+            return frames;
+        if (missingAnims.Contains(identifier))
             return null;
 
-        sprite = Resources.Load<Sprite>(ResourceFolder + identifier);
-        if (sprite == null)
+        frames = LoadFolder(identifier);
+        if (frames == null || frames.Length == 0)
         {
-            Texture2D tex = Resources.Load<Texture2D>(ResourceFolder + identifier);
-            if (tex != null)
-                sprite = Sprite.Create(tex, new Rect(0f, 0f, tex.width, tex.height), new Vector2(0.5f, 0.5f), 100f);
-        }
-
-        if (sprite == null)
-        {
-            missingSprites.Add(identifier);
+            missingAnims.Add(identifier);
             return null;
         }
 
-        spriteCache[identifier] = sprite;
-        return sprite;
+        frameCache[identifier] = frames;
+        return frames;
+    }
+
+    static Sprite[] LoadFolder(string identifier)
+    {
+        string path = ResourceFolder + identifier;
+        var list = new List<Sprite>();
+
+        Sprite[] sprites = Resources.LoadAll<Sprite>(path);
+        if (sprites != null)
+        {
+            for (int i = 0; i < sprites.Length; i++)
+            {
+                if (sprites[i] != null)
+                    list.Add(sprites[i]);
+            }
+        }
+
+        if (list.Count == 0)
+        {
+            Texture2D[] textures = Resources.LoadAll<Texture2D>(path);
+            if (textures != null)
+            {
+                for (int i = 0; i < textures.Length; i++)
+                {
+                    Texture2D tex = textures[i];
+                    if (tex == null)
+                        continue;
+                    Sprite created = Sprite.Create(
+                        tex,
+                        new Rect(0f, 0f, tex.width, tex.height),
+                        new Vector2(0.5f, 0.5f),
+                        100f);
+                    created.name = tex.name;
+                    list.Add(created);
+                }
+            }
+        }
+
+        if (list.Count == 0)
+            return null;
+
+        list.Sort(CompareFrame);
+        return list.ToArray();
+    }
+
+    static int CompareFrame(Sprite a, Sprite b)
+    {
+        int ia = 0;
+        int ib = 0;
+        bool na = a != null && int.TryParse(a.name, out ia);
+        bool nb = b != null && int.TryParse(b.name, out ib);
+        if (na && nb)
+            return ia.CompareTo(ib);
+        if (na)
+            return -1;
+        if (nb)
+            return 1;
+        string an = a != null ? a.name : "";
+        string bn = b != null ? b.name : "";
+        return string.CompareOrdinal(an, bn);
     }
 }

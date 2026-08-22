@@ -31,6 +31,7 @@ public class BuildingPlacer : MonoBehaviour
     int usedArrows;
     Sprite demolishIcon;
     Sprite goldIcon;
+    Sprite cardSprite;
     int newBadgeLevel = -1;
     readonly HashSet<string> seenNewBuildings = new HashSet<string>();
 
@@ -1218,7 +1219,6 @@ public class BuildingPlacer : MonoBehaviour
         if (buttonRects == null || buttonRects.Length != n)
             buttonRects = new Rect[n];
 
-        var btnStyle = WhiteButtonStyle();
         var captionStyle = new GUIStyle(GUI.skin.label)
         {
             fontSize = 24,
@@ -1226,16 +1226,16 @@ public class BuildingPlacer : MonoBehaviour
             alignment = TextAnchor.MiddleCenter,
             wordWrap = true
         };
-        captionStyle.normal.textColor = Color.black;
-        captionStyle.hover.textColor = Color.black;
+        captionStyle.normal.textColor = new Color(0.22f, 0.14f, 0.1f);
+        captionStyle.hover.textColor = captionStyle.normal.textColor;
         var hotkeyStyle = new GUIStyle(GUI.skin.label)
         {
             fontSize = 22,
             fontStyle = FontStyle.Bold,
             alignment = TextAnchor.UpperLeft
         };
-        hotkeyStyle.normal.textColor = Color.black;
-        hotkeyStyle.hover.textColor = Color.black;
+        hotkeyStyle.normal.textColor = new Color(0.22f, 0.14f, 0.1f);
+        hotkeyStyle.hover.textColor = hotkeyStyle.normal.textColor;
 
         for (int i = 0; i < n; i++)
         {
@@ -1243,41 +1243,50 @@ public class BuildingPlacer : MonoBehaviour
             buttonRects[i] = r;
 
             bool isDemolish = showDestroy && i == buildCount;
-            Color oldBg = GUI.backgroundColor;
+            Color oldGui = GUI.color;
             if (isDemolish)
-                GUI.backgroundColor = demolishMode
-                    ? new Color(1f, 0.45f, 0.35f)
-                    : new Color(1f, 0.82f, 0.82f);
+                GUI.color = demolishMode
+                    ? new Color(1f, 0.55f, 0.45f)
+                    : new Color(1f, 0.88f, 0.88f);
             else if (selected == i)
-                GUI.backgroundColor = new Color(1f, 0.92f, 0.45f);
+                GUI.color = new Color(1f, 0.95f, 0.72f);
             else if (list[i].cost > world.DisplayGold)
-                GUI.backgroundColor = new Color(0.82f, 0.82f, 0.82f);
+                GUI.color = new Color(0.78f, 0.78f, 0.78f);
             else
-                GUI.backgroundColor = Color.white;
+                GUI.color = Color.white;
+
+            DrawCard(r);
+            GUI.color = oldGui;
 
             bool wasEnabled = GUI.enabled;
             GUI.enabled = coreExists;
-            GUI.Button(r, GUIContent.none, btnStyle);
-            GUI.backgroundColor = oldBg;
 
-            GUI.Label(new Rect(r.x + 6f, r.y + 4f, 36f, 24f),
+            GUI.Label(new Rect(r.x + 10f, r.y + 6f, 36f, 24f),
                 isDemolish ? "0" : (i + 1).ToString(), hotkeyStyle);
 
-            float imgPad = 8f;
-            float imgH = 104f;
-            var imgRect = new Rect(r.x + imgPad, r.y + 26f, r.width - imgPad * 2f, imgH);
-            var textRect = new Rect(r.x + 4f, r.y + 26f + imgH, r.width - 8f, r.height - imgH - 30f);
+            float footerH = r.height * 0.22f;
+            float nameH = 36f;
+            float imgPad = 14f;
+            var imgRect = new Rect(
+                r.x + imgPad,
+                r.y + 32f,
+                r.width - imgPad * 2f,
+                r.height - footerH - nameH - 36f);
+            var nameRect = new Rect(r.x + 8f, r.y + r.height - footerH - nameH, r.width - 16f, nameH);
+            var costRect = new Rect(r.x + 8f, r.y + r.height - footerH, r.width - 16f, footerH);
 
             if (isDemolish)
             {
                 DrawSprite(imgRect, DemolishIcon());
                 captionStyle.alignment = TextAnchor.MiddleCenter;
-                GUI.Label(textRect, "Destroy", captionStyle);
+                GUI.Label(nameRect, "Destroy", captionStyle);
             }
             else
             {
                 DrawBuildingIcon(imgRect, list[i]);
-                DrawNameAndCost(textRect, list[i].name, list[i].cost, captionStyle);
+                captionStyle.alignment = TextAnchor.MiddleCenter;
+                GUI.Label(nameRect, list[i].name, captionStyle);
+                DrawCost(costRect, list[i].cost, captionStyle);
                 if (ShouldShowNewBadge(list[i], i))
                     DrawNewBadge(r);
             }
@@ -1300,33 +1309,11 @@ public class BuildingPlacer : MonoBehaviour
         }
     }
 
-    static GUIStyle WhiteButtonStyle()
+    void DrawCost(Rect rect, int cost, GUIStyle nameStyle)
     {
-        var style = new GUIStyle(GUI.skin.button)
-        {
-            fontSize = 15,
-            fontStyle = FontStyle.Bold,
-            alignment = TextAnchor.MiddleCenter,
-            wordWrap = true
-        };
-        style.normal.background = Texture2D.whiteTexture;
-        style.hover.background = Texture2D.whiteTexture;
-        style.active.background = Texture2D.whiteTexture;
-        style.focused.background = Texture2D.whiteTexture;
-        style.border = new RectOffset(1, 1, 1, 1);
-        return style;
-    }
-
-    void DrawNameAndCost(Rect rect, string name, int cost, GUIStyle nameStyle)
-    {
-        nameStyle.alignment = TextAnchor.MiddleCenter;
-        nameStyle.wordWrap = true;
-        float nameH = 68f;
-        GUI.Label(new Rect(rect.x, rect.y, rect.width, nameH), name, nameStyle);
-
         var costStyle = new GUIStyle(nameStyle)
         {
-            fontSize = 20,
+            fontSize = 22,
             alignment = TextAnchor.MiddleLeft
         };
         float goldSize = 22f;
@@ -1334,8 +1321,8 @@ public class BuildingPlacer : MonoBehaviour
         float costW = costStyle.CalcSize(new GUIContent(costText)).x;
         float totalW = goldSize + 4f + costW;
         float x = rect.x + Mathf.Max(0f, (rect.width - totalW) * 0.5f);
-        float y = rect.y + nameH;
-        float rowH = Mathf.Max(goldSize, rect.height - nameH);
+        float y = rect.y;
+        float rowH = rect.height;
         DrawGoldIcon(new Rect(x, y + (rowH - goldSize) * 0.5f, goldSize, goldSize));
         GUI.Label(new Rect(x + goldSize + 4f, y, costW + 8f, rowH), costText, costStyle);
     }
@@ -1346,6 +1333,39 @@ public class BuildingPlacer : MonoBehaviour
         float textW = style.CalcSize(new GUIContent(text)).x;
         DrawGoldIcon(new Rect(rect.x, rect.y + (rect.height - iconSize) * 0.5f, iconSize, iconSize));
         GUI.Label(new Rect(rect.x + iconSize + 6f, rect.y, textW + 20f, rect.height), text, style);
+    }
+
+    Sprite CardSprite()
+    {
+        if (cardSprite == null)
+            cardSprite = WorldArt.Load("card");
+        return cardSprite;
+    }
+
+    void DrawCard(Rect rect)
+    {
+        Sprite sprite = CardSprite();
+        if (sprite != null)
+        {
+            DrawSpriteFill(rect, sprite);
+            return;
+        }
+
+        GUI.DrawTexture(rect, Texture2D.whiteTexture, ScaleMode.StretchToFill, false);
+    }
+
+    static void DrawSpriteFill(Rect position, Sprite sprite)
+    {
+        if (sprite == null || sprite.texture == null || position.width <= 1f || position.height <= 1f)
+            return;
+
+        Texture2D tex = sprite.texture;
+        Rect sr = sprite.rect;
+        if (sr.width < 1f || sr.height < 1f)
+            return;
+
+        var uv = new Rect(sr.x / tex.width, sr.y / tex.height, sr.width / tex.width, sr.height / tex.height);
+        GUI.DrawTextureWithTexCoords(position, tex, uv);
     }
 
     Sprite GoldIcon()
