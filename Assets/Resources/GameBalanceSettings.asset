@@ -37,3 +37,5 @@ MonoBehaviour:
   cameraZoomMin: 8
   cameraZoomMax: 16
   cameraZoomSpeed: 1
+  bk: {fileID: 21300000, guid: f40902c8a43804a45bc3b1668fbc3b29, type: 3}
+  font: {fileID: 12800000, guid: 0228fad14dc5c2e428c5047b0fdd40f3, type: 3}

@@ -37,6 +37,13 @@ public class Building : MonoBehaviour
 
     readonly HashSet<Building> currentContacts = new HashSet<Building>();
     bool isGrounded;
+    float lastCollisionSoundTime = -999f;
+
+    const float CollisionSoundMinSpeed = 1.2f;
+    const float CollisionSoundCooldown = 0.12f;
+    const int MaxCollisionSoundsPerFrame = 3;
+    static int collisionSoundFrame = -1;
+    static int collisionSoundsThisFrame;
 
     static readonly Color StarvedTint = new Color(0.2f, 0.2f, 0.22f, 1f);
     static readonly Color WarningRed = new Color(1f, 0.23f, 0.23f, 1f);
@@ -156,6 +163,7 @@ public class Building : MonoBehaviour
 
         RefreshLabels();
         RefreshCdFill();
+        Enemy.IgnoreMeleeColliders(GetComponent<Collider2D>());
     }
 
     void OnCollisionEnter2D(Collision2D collision)
@@ -163,53 +171,59 @@ public class Building : MonoBehaviour
         if (collision == null || collision.gameObject == null)
             return;
 
-        // --- 1. Ground Collision ---
         if (!isGrounded && collision.gameObject.CompareTag("Ground"))
         {
             isGrounded = true;
-            Vector3 impactPosition = collision.GetContact(0).point;
-            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_building_touch_ground", impactPosition);
+            TryPlayCollisionSound(
+                "event:/SFX/sfx_building_touch_ground",
+                collision,
+                true);
             return;
         }
 
-        // --- 2. Building-to-Building Collision ---
+        Building otherBuilding = collision.gameObject.GetComponent<Building>();
+        if (otherBuilding == null || !currentContacts.Add(otherBuilding))
+            return;
+        if (GetInstanceID() > otherBuilding.GetInstanceID())
+            return;
+
+        TryPlayCollisionSound(
+            "event:/SFX/sfx_building_collision",
+            collision,
+            false);
+    }
+
+    void OnCollisionExit2D(Collision2D collision)
+    {
+        if (collision == null || collision.gameObject == null)
+            return;
+
         Building otherBuilding = collision.gameObject.GetComponent<Building>();
         if (otherBuilding != null)
-        {
-            if (currentContacts.Add(otherBuilding))
-            {
-                Vector3 impactPosition = collision.GetContact(0).point;
-                FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_building_collision", impactPosition);
-            }
-        }
+            currentContacts.Remove(otherBuilding);
     }
 
-    void OnCollisionStay2D(Collision2D collision)
+    bool TryPlayCollisionSound(string path, Collision2D collision, bool ignoreSpeed)
     {
-        AbsorbMeleeImpulse(collision);
-    }
+        if (!ignoreSpeed && collision.relativeVelocity.sqrMagnitude < CollisionSoundMinSpeed * CollisionSoundMinSpeed)
+            return false;
+        if (Time.unscaledTime - lastCollisionSoundTime < CollisionSoundCooldown)
+            return false;
 
-    void AbsorbMeleeImpulse(Collision2D collision)
-    {
-        if (IsResource || collision == null)
-            return;
-
-        Enemy enemy = collision.gameObject.GetComponent<Enemy>();
-        if (enemy == null || !enemy.IsMelee)
-            return;
-
-        var rb = GetComponent<Rigidbody2D>();
-        if (rb == null)
-            return;
-
-        int count = collision.contactCount;
-        for (int i = 0; i < count; i++)
+        int frame = Time.frameCount;
+        if (collisionSoundFrame != frame)
         {
-            ContactPoint2D contact = collision.GetContact(i);
-            Vector2 tangent = new Vector2(-contact.normal.y, contact.normal.x);
-            Vector2 impulse = contact.normal * contact.normalImpulse + tangent * contact.tangentImpulse;
-            rb.AddForce(-impulse, ForceMode2D.Impulse);
+            collisionSoundFrame = frame;
+            collisionSoundsThisFrame = 0;
         }
+        if (collisionSoundsThisFrame >= MaxCollisionSoundsPerFrame)
+            return false;
+
+        Vector3 pos = collision.contactCount > 0 ? (Vector3)collision.GetContact(0).point : transform.position;
+        lastCollisionSoundTime = Time.unscaledTime;
+        collisionSoundsThisFrame++;
+        FMODUnity.RuntimeManager.PlayOneShot(path, pos);
+        return true;
     }
 
     public int GetStock(string resource)
@@ -1039,6 +1053,7 @@ public class Building : MonoBehaviour
         mesh.fontSize = 48;
         mesh.characterSize = 0.1f;
         mesh.color = color;
+        GameUi.ApplyFont(mesh);
 
         var renderer = go.GetComponent<MeshRenderer>();
         renderer.sortingOrder = sortingOrder;
@@ -1093,8 +1108,9 @@ public class Building : MonoBehaviour
             var plateGo = new GameObject("Plate");
             plateGo.transform.SetParent(rowGo.transform, false);
             var plate = plateGo.AddComponent<SpriteRenderer>();
-            plate.sprite = ShapeUtil.WhiteSprite();
-            plate.color = new Color(1f, 1f, 1f, 0.5f);
+            Sprite card = GameUi.Card();
+            plate.sprite = card != null ? card : ShapeUtil.WhiteSprite();
+            plate.color = Color.white;
             plate.sortingOrder = 50;
 
             stockRows.Add(new BuildingStockRow
@@ -1151,7 +1167,12 @@ public class Building : MonoBehaviour
         const float pad = 0.05f;
         row.plate.enabled = true;
         row.plate.transform.localPosition = new Vector3((minX + maxX) * 0.5f, (minY + maxY) * 0.5f, 0.02f);
-        row.plate.transform.localScale = new Vector3((maxX - minX) + pad * 2f, (maxY - minY) + pad * 2f, 1f);
+        float w = (maxX - minX) + pad * 2f;
+        float h = (maxY - minY) + pad * 2f;
+        Vector2 size = row.plate.sprite != null ? row.plate.sprite.bounds.size : Vector2.one;
+        float sx = size.x > 0.0001f ? w / size.x : w;
+        float sy = size.y > 0.0001f ? h / size.y : h;
+        row.plate.transform.localScale = new Vector3(sx, sy, 1f);
     }
 
     static bool EncapsulateLocalBounds(Renderer renderer, Transform space, ref float minX, ref float minY, ref float maxX, ref float maxY)

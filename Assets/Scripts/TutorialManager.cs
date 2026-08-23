@@ -319,6 +319,7 @@ public class TutorialManager : MonoBehaviour
         if (info == null || string.IsNullOrEmpty(info.text))
             return;
 
+        GameUi.BeginGui();
         GUI.depth = -100;
         if (overlay)
         {

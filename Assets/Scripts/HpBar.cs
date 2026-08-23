@@ -52,7 +52,7 @@ public class HpBar : MonoBehaviour
 
         var label = CreateUiChild("Value", transform);
         hpText = label.AddComponent<Text>();
-        hpText.font = UiFont();
+        GameUi.ApplyFont(hpText);
         hpText.fontSize = 14;
         hpText.alignment = TextAnchor.MiddleCenter;
         hpText.color = Color.white;
@@ -87,13 +87,5 @@ public class HpBar : MonoBehaviour
         rt.anchorMax = Vector2.one;
         rt.offsetMin = new Vector2(padding, padding);
         rt.offsetMax = new Vector2(-padding, -padding);
-    }
-
-    static Font UiFont()
-    {
-        Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        if (font == null)
-            font = Resources.GetBuiltinResource<Font>("Arial.ttf");
-        return font;
     }
 }

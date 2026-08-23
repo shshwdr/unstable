@@ -12,7 +12,7 @@ level,time,enemies,interval,pos
 5,100,normal_4,1,4|5
 5,60,normal_3|speed_3,1,-4|5
 5,60,melee_1|speed_4|normal_3|melee_1,1,0|5
-6,120,normal_3|melee_1,1,0|5
-6,80,normal_3|speed_4|melee_1,1,-5|5
-6,80,melee_1|speed_4|normal_2|melee_1,1,5|5
-6,120,melee_2|speed_8|normal_5|melee_2,1,0|5
+6,120,normal_3|melee_1,1,0|7
+6,80,normal_3|speed_4|melee_1,1,-5|7
+6,80,melee_1|speed_4|normal_2|melee_1,1,5|7
+6,120,melee_2|speed_8|normal_5|melee_2,1,0|7

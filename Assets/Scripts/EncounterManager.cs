@@ -344,6 +344,7 @@ public class SpawnGate : MonoBehaviour
         countdown.fontSize = 72;
         countdown.characterSize = 0.07f;
         countdown.color = Color.white;
+        GameUi.ApplyFont(countdown);
         textGo.GetComponent<MeshRenderer>().sortingOrder = 8;
     }
 

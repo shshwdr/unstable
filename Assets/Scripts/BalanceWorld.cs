@@ -59,6 +59,7 @@ public class BalanceWorld : MonoBehaviour
             settings = Resources.Load<GameBalanceSettings>("GameBalanceSettings");
         if (settings == null)
             settings = ScriptableObject.CreateInstance<GameBalanceSettings>();
+        GameBalanceSettings.Current = settings;
 
         SharedMaterial = new PhysicsMaterial2D("Shared")
         {
@@ -102,17 +103,10 @@ public class BalanceWorld : MonoBehaviour
             Restart();
 
         bool enter = Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter);
-        if (!blocked && enter)
+        if (!blocked && enter && HasNextLevel)
         {
-            if (IsVictory && HasNextLevel)
-            {
-                GoToNextLevel();
-                return;
-            }
-
-            bool tutorialFinish = !showAllClearPopup && !IsGameOver
-                && tutorial != null && tutorial.AllowEnterToFinish;
-            if (tutorialFinish && HasNextLevel)
+            if (IsVictory || (!showAllClearPopup && !IsGameOver
+                && tutorial != null && tutorial.AllowEnterToFinish))
             {
                 GoToNextLevel();
                 return;
@@ -691,6 +685,7 @@ public class BalanceWorld : MonoBehaviour
         tiltHint.fontSize = 48;
         tiltHint.characterSize = 0.12f;
         tiltHint.color = new Color(0.85f, 0.15f, 0.15f);
+        GameUi.ApplyFont(tiltHint);
         go.GetComponent<MeshRenderer>().sortingOrder = 16;
         go.SetActive(false);
     }
@@ -773,18 +768,30 @@ public class BalanceWorld : MonoBehaviour
         if (cam == null)
             return;
 
-        Sprite sprite = WorldArt.Load("bk");
+        Sprite sprite = settings != null && settings.bk != null ? settings.bk : WorldArt.Load("bk");
         if (sprite == null)
+        {
+            if (background != null)
+                background.gameObject.SetActive(false);
             return;
+        }
 
+        SpriteRenderer renderer;
         if (background == null)
         {
             var go = new GameObject("Background");
-            var renderer = go.AddComponent<SpriteRenderer>();
-            renderer.sprite = sprite;
+            renderer = go.AddComponent<SpriteRenderer>();
             renderer.sortingOrder = -20;
             background = go.transform;
         }
+        else
+        {
+            renderer = background.GetComponent<SpriteRenderer>();
+            background.gameObject.SetActive(true);
+        }
+
+        if (renderer != null)
+            renderer.sprite = sprite;
 
         background.SetParent(cam.transform, false);
         background.localPosition = new Vector3(0f, 0f, 10f);
@@ -801,6 +808,7 @@ public class BalanceWorld : MonoBehaviour
 
     void OnGUI()
     {
+        GameUi.BeginGui();
         var hintStyle = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.UpperLeft,
@@ -840,6 +848,21 @@ public class BalanceWorld : MonoBehaviour
             GUI.Label(new Rect(0f, 52f, Screen.width, 70f), "space to unpause", pauseStyle);
         }
 
+        if (IsVictory && HasNextLevel && !showAllClearPopup)
+        {
+            var nextStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = 36,
+                fontStyle = FontStyle.Bold,
+                wordWrap = true
+            };
+            nextStyle.normal.textColor = Color.black;
+            nextStyle.hover.textColor = Color.black;
+            GUI.Label(new Rect(0f, IsPaused && !IsTutorialPaused ? 122f : 52f, Screen.width, 70f),
+                "press Enter to go to the next level", nextStyle);
+        }
+
         if (showAllClearPopup)
         {
             DrawAllClearPopup();
@@ -852,27 +875,20 @@ public class BalanceWorld : MonoBehaviour
         float boxW = 520f;
         float boxH = 200f;
         var box = new Rect((Screen.width - boxW) * 0.5f, Screen.height * 0.32f, boxW, boxH);
-        GUI.Box(box, "");
+        GameUi.DrawCard(box);
 
         var style = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = 36,
-            fontStyle = FontStyle.Bold
-        };
-        style.normal.textColor = Color.white;
-        GUI.Label(new Rect(box.x, box.y + 16f, box.width, 50f), "Defeat", style);
-
-        var sub = new GUIStyle(GUI.skin.label)
-        {
-            alignment = TextAnchor.MiddleCenter,
-            fontSize = 18,
+            fontSize = 28,
+            fontStyle = FontStyle.Bold,
             wordWrap = true
         };
-        sub.normal.textColor = Color.white;
-        GUI.Label(new Rect(box.x + 16f, box.y + 72f, box.width - 32f, 28f), "Press R to restart", sub);
-        GUI.Label(new Rect(box.x + 16f, box.y + 108f, box.width - 32f, 72f),
-            "Remember: you can press Space to pause and adjust your buildings", sub);
+        style.normal.textColor = new Color(0.22f, 0.14f, 0.1f);
+        style.hover.textColor = style.normal.textColor;
+        GUI.Label(box,
+            "Defeat\nPress R to restart\nRemember: you can press Space to pause and adjust your buildings",
+            style);
     }
 
     void DrawAllClearPopup()
@@ -880,7 +896,7 @@ public class BalanceWorld : MonoBehaviour
         float boxW = 560f;
         float boxH = 200f;
         var box = new Rect((Screen.width - boxW) * 0.5f, Screen.height * 0.28f, boxW, boxH);
-        GUI.Box(box, "");
+        GameUi.DrawCard(box);
 
         var title = new GUIStyle(GUI.skin.label)
         {
@@ -889,27 +905,31 @@ public class BalanceWorld : MonoBehaviour
             fontStyle = FontStyle.Bold,
             wordWrap = true
         };
-        title.normal.textColor = Color.white;
-        GUI.Label(new Rect(box.x + 16f, box.y + 28f, box.width - 32f, 54f),
+        title.normal.textColor = new Color(0.22f, 0.14f, 0.1f);
+        title.hover.textColor = title.normal.textColor;
+        GUI.Label(new Rect(box.x + 16f, box.y + 16f, box.width - 32f, boxH - 94f),
             "All enemy cleared", title);
 
-        var btn = new GUIStyle(GUI.skin.button)
+        var btn = new GUIStyle(GUI.skin.label)
         {
             fontSize = 20,
             fontStyle = FontStyle.Bold
         };
+        btn.normal.textColor = new Color(0.22f, 0.14f, 0.1f);
         float btnW = 230f;
         float btnH = 48f;
         float btnY = box.y + boxH - 70f;
-        if (GUI.Button(new Rect(box.x + 30f, btnY, btnW, btnH), "Stay in this level", btn))
+        if (GameUi.CardButton(new Rect(box.x + 30f, btnY, btnW, btnH), "Stay in this level", btn))
         {
             FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_click");
             showAllClearPopup = false;
+            GUIUtility.hotControl = 0;
+            GUIUtility.keyboardControl = 0;
         }
 
         bool wasEnabled = GUI.enabled;
         GUI.enabled = HasNextLevel;
-        if (GUI.Button(new Rect(box.x + box.width - 30f - btnW, btnY, btnW, btnH), "Next level", btn)
+        if (GameUi.CardButton(new Rect(box.x + box.width - 30f - btnW, btnY, btnW, btnH), "Next level", btn)
             && HasNextLevel)
             GoToNextLevel();
         GUI.enabled = wasEnabled;

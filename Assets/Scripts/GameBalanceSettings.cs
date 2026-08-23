@@ -58,4 +58,19 @@ public class GameBalanceSettings : ScriptableObject
     public float cameraZoomMax = 16f;
     [Tooltip("滚轮每格缩放的幅度。")]
     public float cameraZoomSpeed = 1.2f;
+
+    [Header("美术")]
+    [Tooltip("拖入 Resources/bk 下的图片，作为游戏背景。")]
+    public Sprite bk;
+    [Tooltip("拖入 Resources/font 下的字体。")]
+    public Font font;
+
+    public static GameBalanceSettings Current { get; set; }
+
+    public static GameBalanceSettings Loaded()
+    {
+        if (Current == null)
+            Current = Resources.Load<GameBalanceSettings>("GameBalanceSettings");
+        return Current;
+    }
 }

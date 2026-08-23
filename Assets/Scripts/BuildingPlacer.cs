@@ -31,7 +31,7 @@ public class BuildingPlacer : MonoBehaviour
     int usedArrows;
     Sprite demolishIcon;
     Sprite goldIcon;
-    Sprite cardSprite;
+    Sprite buildCardSprite;
     int newBadgeLevel = -1;
     readonly HashSet<string> seenNewBuildings = new HashSet<string>();
 
@@ -61,6 +61,7 @@ public class BuildingPlacer : MonoBehaviour
         ghostName.fontSize = 48;
         ghostName.characterSize = 0.12f;
         ghostName.color = Color.white;
+        GameUi.ApplyFont(ghostName);
         nameGo.GetComponent<MeshRenderer>().sortingOrder = 21;
 
         CreateGhostWarning();
@@ -118,7 +119,11 @@ public class BuildingPlacer : MonoBehaviour
         worldPos.z = 0f;
 
         var encounters = GetComponent<EncounterManager>();
-        if (Input.GetMouseButtonDown(0) && encounters != null && encounters.IsPointerOnGate(worldPos))
+        bool holdingBuilding = CurrentInfo() != null;
+        if (Input.GetMouseButtonDown(0)
+            && !holdingBuilding
+            && encounters != null
+            && encounters.IsPointerOnGate(worldPos))
         {
             encounters.TryRushAt(worldPos);
             ghost.gameObject.SetActive(false);
@@ -195,7 +200,8 @@ public class BuildingPlacer : MonoBehaviour
             }
         }
 
-        if (hovered != null && (!dragging || demolishMode))
+        bool holdingBuildingNow = CurrentInfo() != null;
+        if (hovered != null && !holdingBuildingNow && (!dragging || demolishMode))
         {
             ghost.gameObject.SetActive(false);
             UpdateLinkPreview(hovered.transform.position, hovered.Info, hovered);
@@ -364,6 +370,7 @@ public class BuildingPlacer : MonoBehaviour
         ghostWarning.characterSize = 0.1f;
         ghostWarning.color = warningRed;
         ghostWarning.richText = false;
+        GameUi.ApplyFont(ghostWarning);
         textGo.GetComponent<MeshRenderer>().sortingOrder = 22;
         textGo.SetActive(false);
 
@@ -896,7 +903,7 @@ public class BuildingPlacer : MonoBehaviour
         body.bodyType = RigidbodyType2D.Dynamic;
         body.mass = Mathf.Max(0.05f, world.settings.buildingDensity * Mathf.Max(0.01f, phys.size.x * phys.size.y));
         body.angularDrag = world.settings.buildingAngularDrag;
-        body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        body.collisionDetectionMode = CollisionDetectionMode2D.Discrete;
         body.interpolation = RigidbodyInterpolation2D.Interpolate;
 
         var col = BuildingArt.AddCollider(go, sprite, scale, info, world.SharedMaterial);
@@ -1101,6 +1108,7 @@ public class BuildingPlacer : MonoBehaviour
 
     void OnGUI()
     {
+        GameUi.BeginGui();
         bool blocked = TutorialManager.Instance != null && TutorialManager.Instance.BlocksInput;
         DrawBuildBar();
 
@@ -1110,7 +1118,7 @@ public class BuildingPlacer : MonoBehaviour
             DrawDemolishHoverPrompt();
             if (string.IsNullOrEmpty(panelText))
             {
-                if (hovered != null && hovered.Info != null && (!dragging || demolishMode))
+                if (hovered != null && hovered.Info != null && CurrentInfo() == null && (!dragging || demolishMode))
                     panelText = hovered.HoverInfo();
                 else if (ghost != null && ghost.gameObject.activeSelf)
                 {
@@ -1130,17 +1138,17 @@ public class BuildingPlacer : MonoBehaviour
             ? Mathf.Max(8f, barRect.y - panelH - 8f)
             : Screen.height - panelH;
         var panel = new Rect(Screen.width - panelW, panelY, panelW, panelH);
-        GUI.Box(panel, "");
+        GameUi.DrawCard(panel);
 
         var panelStyle = new GUIStyle(GUI.skin.label)
         {
             fontSize = 32,
+            alignment = TextAnchor.MiddleCenter,
             wordWrap = true
         };
         panelStyle.normal.textColor = Color.black;
         panelStyle.hover.textColor = Color.black;
-        GUI.Label(new Rect(panel.x + 12f, panel.y + 10f, panel.width - 20f, panel.height - 16f),
-            panelText, panelStyle);
+        GUI.Label(panel, panelText, panelStyle);
     }
 
     string ButtonHoverPanelText()
@@ -1267,7 +1275,7 @@ public class BuildingPlacer : MonoBehaviour
             else
                 GUI.color = Color.white;
 
-            DrawCard(r);
+            DrawBuildCard(r);
             GUI.color = oldGui;
 
             bool wasEnabled = GUI.enabled;
@@ -1290,6 +1298,14 @@ public class BuildingPlacer : MonoBehaviour
                 r.y + 8f,
                 r.width - imgPad * 2f,
                 nameRect.y + lineH - (r.y + 8f));
+            const float imgScale = 0.8f;
+            float imgW = imgRect.width * imgScale;
+            float imgH = imgRect.height * imgScale;
+            imgRect = new Rect(
+                imgRect.x + (imgRect.width - imgW) * 0.5f,
+                imgRect.y + (imgRect.height - imgH) * 0.5f,
+                imgW,
+                imgH);
             var costRect = new Rect(r.x + 8f, r.y + r.height - footerH, r.width - 16f, footerH);
 
             if (isDemolish)
@@ -1393,37 +1409,23 @@ public class BuildingPlacer : MonoBehaviour
         GUI.Label(new Rect(rect.x + iconSize + 6f, rect.y, textW + 20f, rect.height), text, style);
     }
 
-    Sprite CardSprite()
+    Sprite BuildCardSprite()
     {
-        if (cardSprite == null)
-            cardSprite = WorldArt.Load("card");
-        return cardSprite;
+        if (buildCardSprite == null)
+            buildCardSprite = WorldArt.Load("card");
+        return buildCardSprite;
     }
 
-    void DrawCard(Rect rect)
+    void DrawBuildCard(Rect rect)
     {
-        Sprite sprite = CardSprite();
+        Sprite sprite = BuildCardSprite();
         if (sprite != null)
         {
-            DrawSpriteFill(rect, sprite);
+            GameUi.DrawSpriteFill(rect, sprite);
             return;
         }
 
         GUI.DrawTexture(rect, Texture2D.whiteTexture, ScaleMode.StretchToFill, false);
-    }
-
-    static void DrawSpriteFill(Rect position, Sprite sprite)
-    {
-        if (sprite == null || sprite.texture == null || position.width <= 1f || position.height <= 1f)
-            return;
-
-        Texture2D tex = sprite.texture;
-        Rect sr = sprite.rect;
-        if (sr.width < 1f || sr.height < 1f)
-            return;
-
-        var uv = new Rect(sr.x / tex.width, sr.y / tex.height, sr.width / tex.width, sr.height / tex.height);
-        GUI.DrawTextureWithTexCoords(position, tex, uv);
     }
 
     Sprite GoldIcon()

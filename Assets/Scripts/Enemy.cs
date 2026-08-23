@@ -36,6 +36,7 @@ public class Enemy : MonoBehaviour
     public static Enemy Spawn(EnemyInfo info, Vector3 position)
     {
         var go = new GameObject(info.identifier);
+        go.tag = "Enemy";
         go.transform.position = position;
         var enemy = go.AddComponent<Enemy>();
         enemy.Setup(info);
@@ -76,6 +77,7 @@ public class Enemy : MonoBehaviour
             Vector2 size = info.Size * scaleMul;
             SetupMeleePhysics(size);
             IgnoreOtherMeleeColliders();
+            IgnoreBuildingColliders();
             Health = gameObject.AddComponent<Health>();
             Health.Init(info.hp, new Vector3(0f, size.y * 0.5f + 0.28f, 0f), EnemyHpColor);
             return;
@@ -166,6 +168,41 @@ public class Enemy : MonoBehaviour
             var otherCol = other.GetComponent<Collider2D>();
             if (otherCol != null)
                 Physics2D.IgnoreCollision(col, otherCol);
+        }
+    }
+
+    void IgnoreBuildingColliders()
+    {
+        var col = GetComponent<Collider2D>();
+        if (col == null)
+            return;
+
+        for (int i = 0; i < Building.All.Count; i++)
+        {
+            Building building = Building.All[i];
+            if (building == null)
+                continue;
+
+            var buildingCol = building.GetComponent<Collider2D>();
+            if (buildingCol != null)
+                Physics2D.IgnoreCollision(col, buildingCol);
+        }
+    }
+
+    public static void IgnoreMeleeColliders(Collider2D other)
+    {
+        if (other == null)
+            return;
+
+        for (int i = 0; i < All.Count; i++)
+        {
+            Enemy enemy = All[i];
+            if (enemy == null || !enemy.IsMelee)
+                continue;
+
+            var col = enemy.GetComponent<Collider2D>();
+            if (col != null)
+                Physics2D.IgnoreCollision(col, other);
         }
     }
 
@@ -462,28 +499,7 @@ public class Enemy : MonoBehaviour
         if (col == null)
             return false;
 
-        if (world != null && world.FindStandingPlatform(col) != null)
-            return true;
-
-        for (int i = 0; i < Building.All.Count; i++)
-        {
-            Building building = Building.All[i];
-            if (building == null || building.IsResource)
-                continue;
-            if (NearSurface(col, building.GetComponent<Collider2D>()))
-                return true;
-        }
-
-        return false;
-    }
-
-    static bool NearSurface(Collider2D self, Collider2D other)
-    {
-        if (self == null || other == null)
-            return false;
-
-        ColliderDistance2D dist = Physics2D.Distance(self, other);
-        return dist.isOverlapped || dist.distance < 0.08f;
+        return world != null && world.FindStandingPlatform(col) != null;
     }
 
     void CheckFellOff()

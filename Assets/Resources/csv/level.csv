@@ -1,5 +1,5 @@
 identifier,name,buildings,platform,mines,coinIncrease
-1,Tutorial,,balance_b1_0_-2.5_20,rock_b1_left|rock_b1_right,1
+1,Tutorial,,balance_b1_0_-2.5_10,rock_b1_left|rock_b1_right,1
 2,Floating Island,electricity|mine|attack|wall|buffTower,balance_b1_0_-2.5_20|platform_i_5_4_3,rock_b1_left|rock_i_full,1
 3,Off-Center,sunElectricity|mine|attack|wall|buffTower,balance_b1_-2.5_-2.5_20_0.35,rock_b1_left|rock_b1_right,1
 4,Tight Budget,electricity|sunElectricity|mine|attack|coinMachine|wall|buffTower,balance_b1_0_-2.5_20|platform_i_-5_4_3,rock_b1_right|rock_i_full,0
