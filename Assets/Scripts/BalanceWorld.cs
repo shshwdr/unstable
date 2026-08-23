@@ -1,4 +1,4 @@
-using FMODUnity;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using FMODUnity;
@@ -25,6 +25,7 @@ public class BalanceWorld : MonoBehaviour
     public const float GoldStart = 100f;
     public float BoardTilt { get; private set; }
 
+    const string MusicEvent = "event:/Music/mus_gameplay";
     private FMOD.Studio.EventInstance musicInstance;
 
     float tiltTimer;
@@ -73,9 +74,40 @@ public class BalanceWorld : MonoBehaviour
         ApplyPhysics();
         Gold = GoldStart;
 
-        musicInstance = RuntimeManager.CreateInstance("event:/Music/mus_gameplay");
-        musicInstance.setParameterByName("Game Over", 0f);
+        StartCoroutine(StartMusicWhenReady());
+    }
+
+    IEnumerator StartMusicWhenReady()
+    {
+        while (!RuntimeManager.HaveAllBanksLoaded)
+            yield return null;
+
+        while (RuntimeManager.AnySampleDataLoading())
+            yield return null;
+
+        FMOD.Studio.EventDescription desc = RuntimeManager.GetEventDescription(MusicEvent);
+        desc.loadSampleData();
+
+        FMOD.Studio.LOADING_STATE state;
+        desc.getSampleLoadingState(out state);
+        while (state == FMOD.Studio.LOADING_STATE.LOADING)
+        {
+            yield return null;
+            desc.getSampleLoadingState(out state);
+        }
+
+        if (state != FMOD.Studio.LOADING_STATE.LOADED || this == null)
+            yield break;
+
+        musicInstance = RuntimeManager.CreateInstance(MusicEvent);
+        SetMusicGameOver(IsGameOver ? 1f : 0f);
         musicInstance.start();
+    }
+
+    void SetMusicGameOver(float value)
+    {
+        if (musicInstance.isValid())
+            musicInstance.setParameterByName("Game Over", value);
     }
 
     void Start()
@@ -292,6 +324,12 @@ public class BalanceWorld : MonoBehaviour
     void OnDestroy()
     {
         Time.timeScale = 1f;
+        if (musicInstance.isValid())
+        {
+            musicInstance.stop(FMOD.Studio.STOP_MODE.ALLOWFADEOUT);
+            musicInstance.release();
+            musicInstance.clearHandle();
+        }
     }
 
     public void Fail()
@@ -300,7 +338,7 @@ public class BalanceWorld : MonoBehaviour
             return;
         IsGameOver = true;
 
-        musicInstance.setParameterByName("Game Over", 1f);
+        SetMusicGameOver(1f);
 
 
         var tutorial = GetComponent<TutorialManager>();
@@ -367,7 +405,7 @@ public class BalanceWorld : MonoBehaviour
         IsGameOver = false;
         IsVictory = false;
 
-        musicInstance.setParameterByName("Game Over", 0f);
+        SetMusicGameOver(0f);
 
         tiltTimer = 0f;
         Gold = GoldStart;

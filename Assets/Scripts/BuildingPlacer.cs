@@ -1134,15 +1134,13 @@ public class BuildingPlacer : MonoBehaviour
 
         float panelW = 460f;
         float panelH = 280f;
-        float panelY = barRect.height > 0f
-            ? Mathf.Max(8f, barRect.y - panelH - 8f)
-            : Screen.height - panelH;
-        var panel = new Rect(Screen.width - panelW, panelY, panelW, panelH);
+        const float pad = 8f;
+        var panel = new Rect(Screen.width - panelW - pad, pad, panelW, panelH);
         GameUi.DrawCard(panel);
 
         var panelStyle = new GUIStyle(GUI.skin.label)
         {
-            fontSize = 32,
+            fontSize = 30,
             alignment = TextAnchor.MiddleCenter,
             wordWrap = true
         };

@@ -1,8 +1,9 @@
 identifier,text,isEnd,startAction,waitToFinish
-start,"Balance cookware on this unstable board, bake bread, and survive waves of enemies.",,hideDestroyButton|hideEncounter,
+start,"Welcome to a kitchen that will not sit still. Keep the fridge standing, bake bread, and don't let the hungry ones in.",,hideDestroyButton|hideEncounter,
 ,"Place the Fridge on the board. The middle is safest, but anywhere on the board works.",,,
 ,Place the Fridge on the board.,,,build_core
-,"Click a button to pick cookware, then click the board to place it. You can also press number keys to select.",,addBuilding_electricity,
+,"Create other cookware to keep the fridge alive, or breakfast is cancelled forever.",,addBuilding_electricity,
+,"Click a button to pick cookware, then click the board to place it. You can also press number keys to select.",,,
 ,Right-click to cancel the current selection.,,,
 ,"Place the Generator on the board, and try to keep the board balanced.",,,build_electricity
 ,The Generator makes electricity and stores it. Later cookware needs power to work.,,,
