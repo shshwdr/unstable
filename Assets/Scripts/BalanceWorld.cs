@@ -260,6 +260,7 @@ public class BalanceWorld : MonoBehaviour
     {
         if (!HasNextLevel)
             return;
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_click");
         levelIndex++;
         Restart();
     }
@@ -576,6 +577,7 @@ public class BalanceWorld : MonoBehaviour
         Vector3 pos = new Vector3(def.x, def.y, 0f);
 
         var board = new GameObject(def.IsBalance ? "Balance_" + def.name : "Platform_" + def.name);
+        board.tag = "Ground";
         board.transform.SetParent(transform);
         board.transform.position = pos;
 
@@ -900,7 +902,10 @@ public class BalanceWorld : MonoBehaviour
         float btnH = 48f;
         float btnY = box.y + boxH - 70f;
         if (GUI.Button(new Rect(box.x + 30f, btnY, btnW, btnH), "Stay in this level", btn))
+        {
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_click");
             showAllClearPopup = false;
+        }
 
         bool wasEnabled = GUI.enabled;
         GUI.enabled = HasNextLevel;

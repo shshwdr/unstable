@@ -204,7 +204,7 @@ MonoBehaviour:
   Path: Assets/FMODBanks/Desktop/Master.strings.bank
   Name: Master.strings
   StudioPath: bank:/Master.strings
-  lastModified: 639230273100573320
+  lastModified: 639230813791170650
   FileSizes:
   - Name: 
     Value: 1478
@@ -278,7 +278,7 @@ MonoBehaviour:
   Path: Assets/FMODBanks/Desktop/Master.bank
   Name: Master
   StudioPath: bank:/Master
-  lastModified: 639230273100558167
+  lastModified: 639230813791160596
   FileSizes: []
   Exists: 1
 --- !u!114 &-791407390226486832
@@ -344,7 +344,7 @@ MonoBehaviour:
   StringsBanks:
   - {fileID: -2834054597214450731}
   cacheVersion: 131860
-  cacheTime: 639230273100573320
+  cacheTime: 639230813791170650
   SerializableEventsDict:
   - key: event:/SFX/sfx_croissant_shot
     index: 0

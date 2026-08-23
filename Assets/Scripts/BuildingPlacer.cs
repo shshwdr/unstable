@@ -279,6 +279,7 @@ public class BuildingPlacer : MonoBehaviour
         demolishMode = true;
         buttonHold = false;
         dragging = false;
+        FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_ui_click");
         if (ghost != null)
             ghost.gameObject.SetActive(false);
         RefreshGhost();

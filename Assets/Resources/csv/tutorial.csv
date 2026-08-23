@@ -7,11 +7,11 @@ start,"Balance cookware on this unstable board, bake bread, and survive waves of
 ,"Place the Generator on the board, and try to keep the board balanced.",,,build_electricity
 ,The Generator makes electricity and stores it. Later cookware needs power to work.,,,
 ,You can add a Grain Grinder now. Place it near electricity and Wheat so it can make flour.,,addBuilding_mine,
-,Place the Grain Grinder on the board and make sure it is working.,,,build_mine
+,Place the Grain Grinder on the board and make sure it is close enough to Generator.,,,build_mine
 ,Enemies will attack later. Place some cookware that can fight back.,,addBuilding_attack|addBuilding_wall,
 ,"The Oven bakes flour into bread and shoots enemies, but it consumes flour from the Grain Grinder.",,,
 ,The Cutting Board has more HP and can protect other cookware.,,,
-,Place the Oven and the Cutting Board on the board.,,,build_attack|build_wall
+,Place the Oven and the Cutting Board on the board.Make sure Oven is close to Generator and Grinder.,,,build_attack|build_wall
 ,"Press 0, or click the Destroy button, then select the cookware you want to remove.",,addDestoryButton,
 ,Destroy a piece of cookware.,,,destoryBuilding
 ,Enemies are coming! Try building more cookware.,,addEncounter,

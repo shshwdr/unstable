@@ -78,17 +78,18 @@ public class Projectile : MonoBehaviour
 
         if (aoe)
         {
-            // 3. Boomerang projectile shot
             FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_croissant_shot", from);
         }
         else if (slow)
         {
-            // 2. Slow / Cheese projectile shot
             FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_slow_chesse_shot", from);
+        }
+        else if (info != null)
+        {
+            FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_bread_shot", from);
         }
         else
         {
-            // 1. Standard / Bread projectile shot
             FMODUnity.RuntimeManager.PlayOneShot("event:/SFX/sfx_basic_shoot", from);
         }
     }
